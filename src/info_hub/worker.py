@@ -5,6 +5,7 @@ import threading
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from info_hub.content_services import backfill_missing_chunks
 from info_hub.services import (
     claim_next_run, process_run, queue_due_subscriptions, recover_abandoned_runs,
 )
@@ -31,6 +32,8 @@ def main() -> None:
             recover_abandoned_runs()
             queue_due_subscriptions()
             run_id = claim_next_run()
+            if run_id is None:
+                backfill_missing_chunks()
             if run_id is not None:
                 process_run(run_id)
                 continue

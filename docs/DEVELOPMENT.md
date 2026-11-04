@@ -67,3 +67,9 @@ requests and expected sync status. The worker is no longer idle.
 
 Do not set `RUN_DB_INTEGRATION_TESTS=1` against your persistent database.
 The integration test creates records and is reserved for disposable CI DBs.
+
+## Content/search slice
+
+See [CONTENT-SEARCH.md](CONTENT-SEARCH.md). Migration 20261104_0003 adds
+ContentChunk + search index and preserves old RSS versions. Article text
+extraction happens only via an explicit POST for a chosen resource.

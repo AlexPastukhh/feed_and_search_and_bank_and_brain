@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from info_hub.connectors import get_connector
+from info_hub.content_services import index_version
 from info_hub.contracts import ConnectorItem
 from info_hub.db import open_session
 from info_hub.fetch import validate_feed_url
@@ -159,19 +160,34 @@ def _save_items(
                 select(ResourceVersion).where(ResourceVersion.resource_id == resource.id)
                 .order_by(ResourceVersion.version_number.desc()).limit(1)
             )
+            latest_feed = session.scalar(
+                select(ResourceVersion)
+                .where(ResourceVersion.resource_id == resource.id,
+                       ResourceVersion.content_origin == "feed")
+                .order_by(ResourceVersion.version_number.desc()).limit(1)
+            )
             version_number = (latest.version_number + 1) if latest else 1
-            if latest is not None and latest.content_hash == item.content_hash:
+            if latest_feed is not None and latest_feed.content_hash == item.content_hash:
                 version_number = 0
             else:
                 updated += 1
         if version_number:
-            session.add(ResourceVersion(
+            new_version = ResourceVersion(
                 resource_id=resource.id, version_number=version_number,
                 content_text=item.content_text or None,
                 content_status=item.content_status,
+                content_origin="feed",
                 content_hash=item.content_hash,
                 raw_payload=item.raw_payload,
-            ))
+            )
+            session.add(new_version)
+            index_version(session, new_version)
+            current = (
+                session.get(ResourceVersion, resource.current_version_id)
+                if resource.current_version_id is not None else None
+            )
+            if current is None or current.content_origin != "web":
+                resource.current_version_id = new_version.id
         if session.get(SubscriptionResource, (subscription_id, resource.id)) is None:
             session.add(SubscriptionResource(
                 subscription_id=subscription_id, resource_id=resource.id,

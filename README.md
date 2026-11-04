@@ -5,13 +5,13 @@ for the GitHub repository; the Python package is named `info_hub`.
 
 ## Current status
 
-**First functional slice — RSS ingestion**. The repository now contains
-Source/Subscription APIs, queued sync runs, a polling worker, RSS/Atom
-parsing, PostgreSQL storage with content versions, and resource-reading APIs.
+**Second functional slice — content extraction and search**. RSS sources
+are ingested and saved in PostgreSQL. The application now has indexed
+ContentChunks, full-text search and an on-demand open-HTML article extractor.
 
-**Full article extraction, search, LLM, other connectors and research
-workflows are not implemented yet.** RSS content is explicitly marked
-`partial` (or `metadata_only`) because feeds may publish only excerpts.
+**File/API connectors, LLM and research workflows are not implemented yet.**
+Feed content stays marked partial/metadata_only unless an accessible article
+is successfully extracted from its public URL.
 
 ## Architecture
 
@@ -50,14 +50,16 @@ migrations, readiness checks, lint and tests.
 ## First RSS end-to-end test
 
 Follow [the RSS test walkthrough](docs/RSS-FIRST-SLICE.md) to create a
-Source and Subscription, enqueue a sync, poll its status and inspect the
-saved articles.
+Source and Subscription, enqueue a sync and inspect the saved articles.
+Then follow [content/search instructions](docs/CONTENT-SEARCH.md) to
+search archived materials and extract a public article.
 
 Useful endpoints:
 - `POST /sources` and `GET /sources`
 - `POST /sources/{id}/subscriptions` and `GET /subscriptions`
 - `POST /subscriptions/{id}/sync` and `GET /runs/{id}`
 - `GET /resources` and `GET /resources/{id}`
+- `GET /search?q=...` and `POST /resources/{id}/extract`
 - `GET /health/live` and `GET /health/ready`
 
 All source-management endpoints are currently single-user/local-only; they
@@ -90,5 +92,5 @@ There is no bind mount or automatic synchronization. Do not commit secrets,
 
 ## Next
 
-The next slice adds full-text fetching, search and content chunking.
-Later V1 slices add file/API connectors, AI Q&A and evidence-backed research runs.
+Next V1 slices add file/API connectors, AI Q&A and evidence-backed
+research runs. Full-text fetching is on-demand in the current slice.

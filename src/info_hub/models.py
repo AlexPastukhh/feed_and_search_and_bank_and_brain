@@ -2,9 +2,9 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint,
+    Boolean, Computed, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from info_hub.db import Base
@@ -73,7 +73,12 @@ class Resource(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    versions: Mapped[list["ResourceVersion"]] = relationship(back_populates="resource")
+    current_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("resource_versions.id", name="fk_resources_current_version_id"),
+    )
+    versions: Mapped[list["ResourceVersion"]] = relationship(
+        back_populates="resource", foreign_keys="ResourceVersion.resource_id",
+    )
 
 
 class ResourceVersion(Base):
@@ -84,10 +89,13 @@ class ResourceVersion(Base):
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
     content_text: Mapped[str | None] = mapped_column(Text)
     content_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    content_origin: Mapped[str] = mapped_column(String(20), nullable=False, default="feed")
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     raw_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    resource: Mapped[Resource] = relationship(back_populates="versions")
+    resource: Mapped[Resource] = relationship(
+        back_populates="versions", foreign_keys=[resource_id],
+    )
 
 
 class SubscriptionResource(Base):
@@ -97,3 +105,22 @@ class SubscriptionResource(Base):
         ForeignKey("subscriptions.id"), primary_key=True
     )
     resource_id: Mapped[int] = mapped_column(ForeignKey("resources.id"), primary_key=True)
+
+
+class ContentChunk(Base):
+    """Citable offsets into a specific immutable ResourceVersion."""
+    __tablename__ = "content_chunks"
+    __table_args__ = (
+        UniqueConstraint("resource_version_id", "ordinal", name="uq_chunk_position"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    resource_version_id: Mapped[int] = mapped_column(
+        ForeignKey("resource_versions.id"), index=True,
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    char_start: Mapped[int] = mapped_column(Integer, nullable=False)
+    char_end: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('simple'::regconfig, text)", persisted=True),
+    )

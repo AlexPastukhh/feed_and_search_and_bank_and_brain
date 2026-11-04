@@ -72,14 +72,17 @@ def _resource_dict(resource: Resource, version: ResourceVersion | None) -> dict:
         "first_seen_at": resource.first_seen_at,
         "last_seen_at": resource.last_seen_at,
         "content_status": version.content_status if version else "unavailable",
+        "content_origin": version.content_origin if version else None,
         "version": version.version_number if version else None,
         "content_text": version.content_text if version else None,
     }
 
 
-def _latest_version(session: Session, resource_id: int) -> ResourceVersion | None:
+def _latest_version(session: Session, resource: Resource) -> ResourceVersion | None:
+    if resource.current_version_id is not None:
+        return session.get(ResourceVersion, resource.current_version_id)
     return session.scalar(
-        select(ResourceVersion).where(ResourceVersion.resource_id == resource_id)
+        select(ResourceVersion).where(ResourceVersion.resource_id == resource.id)
         .order_by(ResourceVersion.version_number.desc()).limit(1)
     )
 
@@ -167,7 +170,7 @@ def list_resources(
         ).where(SubscriptionResource.subscription_id == subscription_id)
     query = query.order_by(Resource.published_at.desc().nullslast(), Resource.id.desc())
     resources = session.scalars(query.limit(limit)).all()
-    return [_resource_dict(resource, _latest_version(session, resource.id)) for resource in resources]
+    return [_resource_dict(resource, _latest_version(session, resource)) for resource in resources]
 
 
 @router.get("/resources/{resource_id}")
@@ -175,7 +178,7 @@ def get_resource(resource_id: int, session: Session = Depends(get_session)) -> d
     resource = session.get(Resource, resource_id)
     if resource is None:
         raise HTTPException(status_code=404, detail="Resource not found")
-    data = _resource_dict(resource, _latest_version(session, resource.id))
+    data = _resource_dict(resource, _latest_version(session, resource))
     data["versions_available"] = session.scalars(
         select(ResourceVersion.version_number)
         .where(ResourceVersion.resource_id == resource.id)

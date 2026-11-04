@@ -49,3 +49,12 @@ A small connector interface separates RSS transport/parsing from the
 source-independent ingestion and persistence services.
 
 See [RSS-first-slice](RSS-FIRST-SLICE.md) for supported endpoints and limits.
+
+## Content and search slice
+
+ResourceVersion.content_origin distinguishes feed-derived and web-extracted
+content. Resource.current_version_id points to the preferred readable text;
+older versions are retained for provenance. ContentChunk links exact offsets to
+its immutable ResourceVersion; PostgreSQL GIN FTS powers keyword retrieval.
+The worker backfills older RSS texts. HTML extraction is on-demand only.
+Details and PowerShell verification: [CONTENT-SEARCH.md](CONTENT-SEARCH.md).
