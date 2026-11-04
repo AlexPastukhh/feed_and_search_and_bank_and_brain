@@ -1,0 +1,5 @@
+# Keep source files consistent across Docker and Windows.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
