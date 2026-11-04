@@ -4,7 +4,10 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from info_hub.action_broker import CapabilityBroker, ToolExecutionError
+from info_hub.action_broker import (
+    CapabilityBroker, ToolExecutionError, safe_error_code,
+    safe_error_external_ref, safe_error_message,
+)
 from info_hub.action_workflow import WorkflowValidationError
 from info_hub.feedbrain_adapter import FeedbrainSyncAdapter, _http_json
 
@@ -330,6 +333,177 @@ class SourceAndToolSelectionTests(unittest.TestCase):
             with self.subTest(url=url):
                 with self.assertRaises(ValueError):
                     FeedbrainSyncAdapter(base_url=url)
+
+
+class ResultSafetyTests(unittest.TestCase):
+    """The Action history stores a bounded receipt, not provider-owned payloads."""
+
+    @staticmethod
+    def dispatch(payload, *, report_ref=None, callback=None):
+        class ResultAdapter:
+            name = "sample"
+            capabilities = frozenset({"information.sync"})
+
+            def validate_parameters(self, capability, parameters):
+                pass
+
+            def execute(self, capability, parameters, on_external_ref=None):
+                if report_ref is not None:
+                    on_external_ref(report_ref)
+                return payload
+
+        return CapabilityBroker([ResultAdapter()]).dispatch_step(
+            step(tool="sample"), on_external_ref=callback,
+        )
+
+    def test_small_json_receipt_is_preserved(self):
+        receipt = {
+            "status": "completed",
+            "external_run_ref": "sample:run:5",
+            "resource": {"id": "file-27", "mime_type": "application/pdf"},
+            "counts": [1, 2, 3],
+        }
+        outcome = self.dispatch(receipt)
+        self.assertEqual(outcome.external_run_ref, "sample:run:5")
+        self.assertEqual(
+            outcome.details, {
+                "resource": {"id": "file-27", "mime_type": "application/pdf"},
+                "counts": [1, 2, 3],
+            },
+        )
+
+    def test_sensitive_fields_removed_at_any_nesting_level(self):
+        outcome = self.dispatch({
+            "status": "completed", "external_run_ref": "sample:run:5",
+            "credentials": {"password": "never-save", "apiKey": "bad-value"},
+            "items": [
+                {"id": "safe", "access_token": "token-secret"},
+                {"value": {"client_secret": "also-secret", "name": "visible"}},
+            ],
+            "notes": "ordinary text",
+        })
+        rendered = json.dumps(outcome.details)
+        for secret in ("never-save", "bad-value", "token-secret", "also-secret"):
+            self.assertNotIn(secret, rendered)
+        self.assertEqual(outcome.details["items"][0], {"id": "safe"})
+        self.assertEqual(outcome.details["items"][1]["value"], {"name": "visible"})
+        self.assertEqual(outcome.details["notes"], "ordinary text")
+        self.assertTrue(outcome.details["_action_result_redacted"])
+
+    def test_credential_looking_strings_and_signed_urls_are_redacted(self):
+        outcome = self.dispatch({
+            "status": "completed",
+            "instructions": ["Authorization: Bearer verysecret123", "read this"],
+            "link": "https://example.invalid/file?access_token=abcdef",
+            "ordinary_url": "https://example.invalid/file?id=24",
+            "url_with_userinfo": "https://user:password@example.invalid/private",
+            "token": "sample-sensitive",
+        })
+        self.assertEqual(outcome.details["instructions"], ["[REDACTED]", "read this"])
+        self.assertEqual(outcome.details["link"], "[REDACTED]")
+        self.assertEqual(outcome.details["ordinary_url"], "https://example.invalid/file?id=24")
+        self.assertEqual(outcome.details["url_with_userinfo"], "[REDACTED]")
+        self.assertNotIn("token", outcome.details)
+        self.assertTrue(outcome.details["_action_result_redacted"])
+
+    def test_large_response_is_omitted_but_external_ref_and_success_remain(self):
+        outcome = self.dispatch({
+            "status": "completed",
+            "external_run_ref": "sample:run:8",
+            "large": ["x" * 1000 for _ in range(60)],
+        })
+        self.assertEqual(outcome.status, "completed")
+        self.assertEqual(outcome.external_run_ref, "sample:run:8")
+        self.assertEqual(outcome.details, {"_action_result_omitted": "too_large"})
+
+    def test_too_many_nodes_or_nested_levels_are_omitted(self):
+        for value in (
+            [[{"value": "x"} for _ in range(90)] for _ in range(8)],
+            {"next": {"next": {"next": {"next": {"next": {"next": 5}}}}}},
+        ):
+            with self.subTest(value=str(value)[:45]):
+                outcome = self.dispatch({"status": "completed", "data": value})
+                self.assertEqual(outcome.details, {"_action_result_omitted": "too_large"})
+
+    def test_malformed_json_response_is_omitted_without_failing_completed_job(self):
+        for value in (set([1, 2]), object(), float("nan"), {"a": object()}):
+            with self.subTest(type=type(value).__name__):
+                outcome = self.dispatch({
+                    "status": "completed", "external_run_ref": "sample:run:12",
+                    "data": value,
+                })
+                self.assertEqual(outcome.status, "completed")
+                self.assertEqual(outcome.external_run_ref, "sample:run:12")
+                self.assertEqual(
+                    outcome.details, {"_action_result_omitted": "not_json_compatible"},
+                )
+
+    def test_secret_filter_handles_reserved_fields_and_nonstr_keys(self):
+        outcome = self.dispatch({
+            "status": "completed",
+            "_action_result_omitted": "some claimed reason",
+            "data": {"status": "okay"},
+        })
+        self.assertEqual(outcome.details["data"], {"status": "okay"})
+        self.assertNotIn("_action_result_omitted", outcome.details)
+        self.assertTrue(outcome.details["_action_result_redacted"])
+        outcome = self.dispatch({"status": "completed", "data": {1: "bad"}})
+        self.assertEqual(outcome.details, {"_action_result_omitted": "not_json_compatible"})
+
+    def test_invalid_external_references_are_never_forwarded_or_returned(self):
+        for ref in (
+            "", "x" * 241, "sample:run:8\nBAD",
+            "https://sample.invalid/run?token=secret",
+            "sample:run:8#token",
+        ):
+            with self.subTest(ref=ref[:40]):
+                for via_callback in (False, True):
+                    observed = []
+                    result = {
+                        "status": "completed",
+                        "external_run_ref": "sample:run:1" if via_callback else ref,
+                    }
+                    with self.assertRaises(ToolExecutionError) as raised:
+                        self.dispatch(
+                            result,
+                            report_ref=ref if via_callback else None,
+                            callback=observed.append,
+                        )
+                    self.assertEqual(raised.exception.code, "invalid_tool_result")
+                    self.assertEqual(observed, [])
+
+    def test_valid_external_reference_callback_still_runs(self):
+        observed = []
+        outcome = self.dispatch(
+            {"status": "completed", "external_run_ref": "sample:run:18"},
+            report_ref="sample:run:18", callback=observed.append,
+        )
+        self.assertEqual(observed, ["sample:run:18"])
+        self.assertEqual(outcome.external_run_ref, observed[0])
+
+    def test_error_ref_and_message_checked_before_persistence(self):
+        self.assertEqual(safe_error_code("external_run_failed"), "external_run_failed")
+        self.assertEqual(safe_error_code("x" * 200), "tool_error")
+        self.assertEqual(safe_error_code("password=example"), "tool_error")
+        self.assertEqual(
+            safe_error_external_ref("sample:job:3", "sample"), "sample:job:3",
+        )
+        for unsafe in (
+            "https://bob:password@example.invalid/run",
+            "https://sample.invalid/job?token=secret",
+            "sample:job:3\nINJECT", "x" * 241,
+        ):
+            with self.subTest(ref=unsafe[:40]):
+                self.assertIsNone(safe_error_external_ref(unsafe, "sample"))
+        self.assertEqual(safe_error_message("Feedbrain returned HTTP 503"),
+                         "Feedbrain returned HTTP 503")
+        self.assertEqual(
+            safe_error_message("Authorization: Bearer protected_value"),
+            "Tool error details omitted",
+        )
+        self.assertEqual(
+            safe_error_message("x" * 1100), "Tool error details omitted",
+        )
 
 
 class LocalHttpAdapterTests(unittest.TestCase):

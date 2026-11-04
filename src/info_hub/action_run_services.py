@@ -5,7 +5,10 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from info_hub.action_broker import CapabilityBroker, ToolExecutionError
+from info_hub.action_broker import (
+    CapabilityBroker, ToolExecutionError, safe_error_code,
+    safe_error_external_ref, safe_error_message,
+)
 from info_hub.action_models import Action, ActionVersion, utc_now
 from info_hub.action_run_models import ActionResult, ActionRun, ActionStepRun
 from info_hub.action_services import get_action_version
@@ -185,8 +188,11 @@ def process_action_run(run_id: int, broker: CapabilityBroker) -> None:
     try:
         steps = broker.preflight(definition)
     except (ToolExecutionError, WorkflowValidationError) as exc:
-        code = exc.code if isinstance(exc, ToolExecutionError) else "invalid_workflow"
-        _fail_run(run_id, code, str(exc))
+        code = (
+            safe_error_code(exc.code)
+            if isinstance(exc, ToolExecutionError) else "invalid_workflow"
+        )
+        _fail_run(run_id, code, safe_error_message(str(exc)))
         return
     except Exception:
         logger.exception("Unexpected Action preflight failure for run %s", run_id)
@@ -203,12 +209,17 @@ def process_action_run(run_id: int, broker: CapabilityBroker) -> None:
                 on_external_ref=lambda ref: _record_external_ref(step_row_id, ref),
             )
         except ToolExecutionError as exc:
+            # An adapter's error path must not bypass the successful-result
+            # reference validation or leak credential-looking error text.
+            code = safe_error_code(exc.code)
+            message = safe_error_message(str(exc))
+            external_ref = safe_error_external_ref(exc.external_run_ref, step["tool"])
             _end_step(
-                step_row_id, status="failed", tool=exc.tool,
-                external_run_ref=exc.external_run_ref, error_code=exc.code,
-                error_message=str(exc),
+                step_row_id, status="failed", tool=step["tool"],
+                external_run_ref=external_ref, error_code=code,
+                error_message=message,
             )
-            _fail_run(run_id, exc.code, str(exc))
+            _fail_run(run_id, code, message)
             return
         except (WorkflowValidationError, ValueError):
             _end_step(
