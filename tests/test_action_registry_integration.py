@@ -130,6 +130,10 @@ def test_action_registry_errors_and_instruction_only_action():
         "definition_yaml": "name: A\nname: B\ninstruction: Work\n",
     })
     assert bad.status_code == 422
+    unknown_flag = client.post(
+        "/actions", json={"definition_yaml": FIRST_YAML, "execute": True},
+    )
+    assert unknown_flag.status_code == 422
     unsupported = client.post("/actions", json={
         "definition_yaml": "name: A\ninstruction: Work\nworkflow:\n  schema: 1\n"
                            "  steps:\n    - id: one\n      capability: system.shell\n"

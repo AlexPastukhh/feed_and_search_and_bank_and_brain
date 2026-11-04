@@ -1,6 +1,6 @@
 """Action Registry HTTP API: create, read and publish append-only definition versions."""
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,8 @@ router = APIRouter(tags=["actions"])
 
 
 class ActionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     definition_yaml: str = Field(min_length=1, max_length=MAX_DOCUMENT_CHARS)
 
 
