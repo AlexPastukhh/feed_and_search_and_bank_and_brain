@@ -3,6 +3,7 @@ import logging
 
 from fastapi import FastAPI
 
+from info_hub.api import router as sources_router
 from info_hub.health import router as health_router
 from info_hub.settings import get_settings
 
@@ -13,7 +14,8 @@ logging.basicConfig(
 
 app = FastAPI(
     title="Feed & Research Platform",
-    version="0.1.0",
-    description="Phase 0: project foundation and runtime health checks.",
+    version="0.2.0",
+    description="Source/subscription registry and first RSS ingestion slice.",
 )
 app.include_router(health_router)
+app.include_router(sources_router)

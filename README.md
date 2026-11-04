@@ -5,13 +5,13 @@ for the GitHub repository; the Python package is named `info_hub`.
 
 ## Current status
 
-**Phase 0 — Runtime skeleton**. The repository contains a minimal FastAPI
-service, a PostgreSQL-backed runtime configuration, an Alembic migration
-baseline, a separate worker entrypoint, Docker Compose and a CI workflow
-template (not enabled yet).
+**First functional slice — RSS ingestion**. The repository now contains
+Source/Subscription APIs, queued sync runs, a polling worker, RSS/Atom
+parsing, PostgreSQL storage with content versions, and resource-reading APIs.
 
-**No RSS import, search, LLM, research processing or worker job consumer has
-been implemented yet.** Those are next feature slices.
+**Full article extraction, search, LLM, other connectors and research
+workflows are not implemented yet.** RSS content is explicitly marked
+`partial` (or `metadata_only`) because feeds may publish only excerpts.
 
 ## Architecture
 
@@ -47,6 +47,22 @@ active because the current Fortis GitHub PAT lacks permission to modify
 `.github/workflows/`. Once an authorized account enables it, CI can run
 migrations, readiness checks, lint and tests.
 
+## First RSS end-to-end test
+
+Follow [the RSS test walkthrough](docs/RSS-FIRST-SLICE.md) to create a
+Source and Subscription, enqueue a sync, poll its status and inspect the
+saved articles.
+
+Useful endpoints:
+- `POST /sources` and `GET /sources`
+- `POST /sources/{id}/subscriptions` and `GET /subscriptions`
+- `POST /subscriptions/{id}/sync` and `GET /runs/{id}`
+- `GET /resources` and `GET /resources/{id}`
+- `GET /health/live` and `GET /health/ready`
+
+All source-management endpoints are currently single-user/local-only; they
+must not be published on an unauthenticated internet-facing interface.
+
 ## Development
 
 ```bash
@@ -74,6 +90,5 @@ There is no bind mount or automatic synchronization. Do not commit secrets,
 
 ## Next
 
-Phase 1: Source/Subscription and Resource contracts, then the first end-to-end
-RSS flow. The broader V1 adds file/API connectors, search, AI Q&A and
-evidence-backed research runs.
+The next slice adds full-text fetching, search and content chunking.
+Later V1 slices add file/API connectors, AI Q&A and evidence-backed research runs.

@@ -37,3 +37,15 @@ their first real feature is developed, not as empty scaffolding.
 This file is a brief architectural orientation, not a competing feature registry.
 A complete Draft 0.2 architecture package exists separately; import it into
 the repository and make one canonical feature backlog before Phase 1.
+
+## Implemented first slice: RSS
+
+`Source` holds a feed connection; `Subscription` holds polling settings and
+READ/RESEARCH flags. `IngestionRun` is a durable queued job. The worker
+fetches and parses RSS/Atom, upserts `Resource`, creates `ResourceVersion`
+only for content changes, and records `SubscriptionResource` membership.
+Each API resource shows provenance and whether feed content is partial.
+A small connector interface separates RSS transport/parsing from the
+source-independent ingestion and persistence services.
+
+See [RSS-first-slice](RSS-FIRST-SLICE.md) for supported endpoints and limits.

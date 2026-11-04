@@ -59,3 +59,11 @@ The workflow template is `ci/workflow-template.yml`. Activating it requires
 placing it at `.github/workflows/ci.yml` using GitHub credentials with
 workflow-management permission. The Fortis PAT currently cannot make this
 change. Do not embed or transfer PATs into repository files.
+
+## First RSS vertical slice
+
+See [RSS-FIRST-SLICE.md](RSS-FIRST-SLICE.md) for step-by-step PowerShell API
+requests and expected sync status. The worker is no longer idle.
+
+Do not set `RUN_DB_INTEGRATION_TESTS=1` against your persistent database.
+The integration test creates records and is reserved for disposable CI DBs.

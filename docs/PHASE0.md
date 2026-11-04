@@ -1,5 +1,8 @@
 # Phase 0 — Repository skeleton
 
+> Historical Phase 0 snapshot. The RSS vertical slice later activated the worker
+> and added Source/Subscription/Resource persistence; see [RSS-FIRST-SLICE.md](RSS-FIRST-SLICE.md).
+
 ## Delivered components
 - Installable Python package and FastAPI application.
 - `/health/live`: process liveness.

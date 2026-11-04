@@ -1,16 +1,13 @@
-"""Standalone worker process, ready for durable jobs in a later phase.
-
-Phase 0 intentionally does not poll or consume jobs. This process proves
-that a separate runtime entrypoint can be deployed alongside the API.
-"""
+"""Durable RSS sync worker and basic subscription scheduler."""
 import logging
 import signal
 import threading
 
-from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from info_hub.db import get_engine
+from info_hub.services import (
+    claim_next_run, process_run, queue_due_subscriptions, recover_abandoned_runs,
+)
 from info_hub.settings import get_settings
 
 logging.basicConfig(
@@ -28,16 +25,19 @@ def request_shutdown(_signum: int, _frame: object) -> None:
 def main() -> None:
     signal.signal(signal.SIGTERM, request_shutdown)
     signal.signal(signal.SIGINT, request_shutdown)
-    logger.info("Worker started (Phase 0: job processing not implemented)")
+    logger.info("RSS worker started")
     while not shutdown.is_set():
         try:
-            with get_engine().connect() as connection:
-                connection.execute(text("SELECT 1"))
-            logger.debug("Database connectivity OK")
+            recover_abandoned_runs()
+            queue_due_subscriptions()
+            run_id = claim_next_run()
+            if run_id is not None:
+                process_run(run_id)
+                continue
         except SQLAlchemyError:
-            logger.warning("Worker database connectivity unavailable")
-        shutdown.wait(30)
-    logger.info("Worker shut down")
+            logger.exception("Worker database operation failed")
+        shutdown.wait(3)
+    logger.info("RSS worker stopped")
 
 
 if __name__ == "__main__":
