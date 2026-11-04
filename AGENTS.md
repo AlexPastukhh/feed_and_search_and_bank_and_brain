@@ -16,8 +16,8 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 - `README.md` is a navigation/overview, `docs/DEVELOPMENT.md` is for operations,
   and RSS/content docs contain feature-specific verification only. Avoid duplicating
   status and roadmap across files.
-- The **Action Registry models/API now exist in code** but are not yet verified
-  against PostgreSQL. Broker, execution history and scheduler remain planned.
+- The **Action Registry models/API have been verified** against the running
+  PostgreSQL-backed API via Fortis Repo. Broker, run history and scheduler remain planned.
   Feedbrain is optional, not the mandatory data path.
 - External and internal services are black boxes behind accessible
   API/MCP/CLI/tool contracts. Prefer existing capabilities over reinventing them.
