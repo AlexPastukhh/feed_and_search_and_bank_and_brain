@@ -100,11 +100,38 @@ class BrokerTests(unittest.TestCase):
         )
         self.assertEqual(clock.sleeps, [2, 2])
 
+    def test_accepted_external_reference_is_reported_before_polling(self):
+        notifications = []
+        adapter, http, _ = make_adapter([queued(), run()])
+        result = CapabilityBroker([adapter]).dispatch_step(
+            step(), on_external_ref=notifications.append,
+        )
+        self.assertEqual(notifications, ["feedbrain:ingestion_run:73"])
+        self.assertEqual(result.external_run_ref, notifications[0])
+        self.assertEqual(len(http.calls), 2)
+
     def test_unknown_source_is_rejected_without_http(self):
         adapter, http, _ = make_adapter([])
         with self.assertRaises(ToolExecutionError) as exc:
             CapabilityBroker([adapter]).dispatch_step(step("unbound"))
         self.assertEqual(exc.exception.code, "source_unbound")
+        self.assertEqual(http.calls, [])
+
+    def test_preflight_rejects_unknown_source_before_any_step(self):
+        adapter, http, _ = make_adapter([])
+        broker = CapabilityBroker([adapter])
+        definition = {
+            "name": "Check feeds", "instruction": "Collect data",
+            "workflow": {
+                "schema": 1, "steps": [
+                    step(), {"id": "next", "capability": "information.sync",
+                             "with": {"source": "unbound"}},
+                ],
+            },
+        }
+        with self.assertRaises(ToolExecutionError) as error:
+            broker.preflight(definition)
+        self.assertEqual(error.exception.code, "source_unbound")
         self.assertEqual(http.calls, [])
 
     def test_missing_capability_is_rejected_before_http(self):

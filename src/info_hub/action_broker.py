@@ -1,5 +1,5 @@
 """Capability-level dispatch independent of any tool's transport or storage."""
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -50,8 +50,15 @@ class CapabilityAdapter(Protocol):
     @property
     def capabilities(self) -> frozenset[str]: ...
 
-    def execute(self, capability: str, parameters: Mapping[str, Any]) -> dict[str, Any]:
-        """Return a completed normalized result; raise ToolExecutionError otherwise."""
+    def validate_parameters(self, capability: str, parameters: Mapping[str, Any]) -> None:
+        """Check local capability availability without performing a network operation."""
+        ...
+
+    def execute(
+        self, capability: str, parameters: Mapping[str, Any],
+        on_external_ref: Callable[[str], None] | None = None,
+    ) -> dict[str, Any]:
+        """Return a completed result; report external reference as soon as known."""
         ...
 
 
@@ -70,7 +77,22 @@ class CapabilityBroker:
     def capabilities(self) -> frozenset[str]:
         return frozenset(self._adapters)
 
-    def dispatch_step(self, step: Mapping[str, Any]) -> StepOutcome:
+    def preflight(self, definition: Mapping[str, Any]) -> list[dict[str, Any]]:
+        """Fail before any side effects when a step has no usable adapter/binding."""
+        validated = require_executable_workflow(definition, self.capabilities)
+        steps = validated["workflow"]["steps"]
+        for step in steps:
+            adapter = self._adapters[step["capability"]]
+            adapter.validate_parameters(step["capability"], step["with"])
+        return steps
+
+    def tool_name_for(self, capability: str) -> str:
+        return self._adapters[capability].name
+
+    def dispatch_step(
+        self, step: Mapping[str, Any],
+        on_external_ref: Callable[[str], None] | None = None,
+    ) -> StepOutcome:
         """Validate a V1 step before handing it to any registered external tool."""
         if not isinstance(step, Mapping):
             raise WorkflowValidationError("Step must be an object")
@@ -85,7 +107,10 @@ class CapabilityBroker:
         normalized = definition["workflow"]["steps"][0]
         capability = normalized["capability"]
         adapter = self._adapters[capability]
-        result = adapter.execute(capability, normalized["with"])
+        adapter.validate_parameters(capability, normalized["with"])
+        result = adapter.execute(
+            capability, normalized["with"], on_external_ref=on_external_ref,
+        )
         if not isinstance(result, dict) or result.get("status") != "completed":
             raise ToolExecutionError(
                 "invalid_tool_result",

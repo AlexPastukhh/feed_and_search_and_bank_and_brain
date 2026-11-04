@@ -14,7 +14,9 @@ class ProjectStructureTests(unittest.TestCase):
             "alembic.ini",
             "alembic/env.py",
             "alembic/versions/20261104_0001_baseline.py",
+            "alembic/versions/20261104_0005_action_execution.py",
             "src/info_hub/main.py",
+            "src/info_hub/action_worker.py",
             "src/info_hub/worker.py",
             ".env.example",
             ".gitignore",
@@ -29,7 +31,7 @@ class ProjectStructureTests(unittest.TestCase):
 
     def test_compose_separates_app_and_database(self):
         compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
-        for service in ("  api:", "  worker:", "  db:", "  migrate:"):
+        for service in ("  api:", "  worker:", "  action-worker:", "  db:", "  migrate:"):
             with self.subTest(service=service):
                 self.assertIn(service, compose)
 

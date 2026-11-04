@@ -128,7 +128,7 @@ class FeedbrainSyncAdapter:
         self.monotonic = monotonic
         self.sleep = sleep
 
-    def execute(self, capability: str, parameters: Mapping[str, Any]) -> dict[str, Any]:
+    def validate_parameters(self, capability: str, parameters: Mapping[str, Any]) -> None:
         if capability not in self.capabilities:
             raise ToolExecutionError(
                 "capability_unavailable", "Feedbrain cannot provide this capability",
@@ -146,6 +146,12 @@ class FeedbrainSyncAdapter:
                 tool=self.name,
             )
 
+    def execute(
+        self, capability: str, parameters: Mapping[str, Any],
+        on_external_ref: Callable[[str], None] | None = None,
+    ) -> dict[str, Any]:
+        self.validate_parameters(capability, parameters)
+        alias = parameters["source"]
         subscription_id = self.source_bindings[alias]
         deadline = self.monotonic() + self.max_wait_seconds
         status, queued = self.transport(
@@ -164,6 +170,8 @@ class FeedbrainSyncAdapter:
                 "invalid_response", "Feedbrain returned a mismatched subscription ID",
                 tool=self.name, external_run_ref=external_ref,
             )
+        if on_external_ref is not None:
+            on_external_ref(external_ref)
 
         # Feedbrain can return an already-active IngestionRun. Do not claim it was
         # created by this Action; just report its observed final outcome.
