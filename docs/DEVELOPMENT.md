@@ -1,6 +1,6 @@
 # Разработка и эксплуатация Feedbrain
 
-> Что реализовано — [STATUS.md](STATUS.md). Зачем это нужно и как связано с Actions — [ARCHITECTURE.md](ARCHITECTURE.md). Ограничения доступа — [SECURITY.md](SECURITY.md).
+> Что реализовано — [PROJECT.md](PROJECT.md). Зачем это нужно и как связано с Actions — [ARCHITECTURE.md](ARCHITECTURE.md). Ограничения доступа — [SECURITY.md](SECURITY.md).
 
 ## Рабочие копии и Git
 

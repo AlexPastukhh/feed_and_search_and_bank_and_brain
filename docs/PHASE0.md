@@ -2,7 +2,7 @@
 
 > **Historical record only** of the initial scaffold (not a current product status).
 > Later slices implemented RSS, a working worker, content extraction and FTS.
-> For the current, authoritative status see [STATUS.md](STATUS.md);
+> For the current, authoritative status see [PROJECT.md](PROJECT.md);
 > for the updated Action-centric design see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Delivered components

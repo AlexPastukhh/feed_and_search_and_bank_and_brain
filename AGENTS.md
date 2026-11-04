@@ -5,7 +5,12 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 
 ## Architecture and documentation
 - Canonical vision, vocabulary and boundaries: `docs/ARCHITECTURE.md`.
-- Current implementation truth: `docs/STATUS.md`; security: `docs/SECURITY.md`.
+- Living project tracker (Current State / History / Plan): `docs/PROJECT.md`;
+  security: `docs/SECURITY.md`.
+- After verified work, update `docs/PROJECT.md`: check off only validated tasks,
+  refresh current state, and append a dated history entry with commit/evidence.
+  When plans change, record why; never erase past milestones or claim
+  untested code was verified.
 - `README.md` is a navigation/overview, `docs/DEVELOPMENT.md` is for operations,
   and RSS/content docs contain feature-specific verification only. Avoid duplicating
   status and roadmap across files.

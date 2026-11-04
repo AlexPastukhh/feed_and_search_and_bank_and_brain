@@ -9,7 +9,7 @@
 | Документ | Единственная ответственность |
 |---|---|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Целевой дизайн: Action, исполнители, инструменты, источники, представления и границы Feedbrain |
-| [STATUS.md](docs/STATUS.md) | Что реально реализовано, что запланировано, что проверено |
+| [PROJECT.md](docs/PROJECT.md) | **Current State / History / Plan** — единый трекер прогресса, выполненных и будущих задач |
 | [SECURITY.md](docs/SECURITY.md) | Сетевая доступность, текущие риски и необходимые permissions |
 | [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Локальный запуск, тесты, Git workflow, CI |
 | [RSS-FIRST-SLICE.md](docs/RSS-FIRST-SLICE.md) | Ручная проверка RSS и фоновой синхронизации |
