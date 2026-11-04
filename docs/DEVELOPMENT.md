@@ -54,7 +54,7 @@ docker compose ps -a
 python -m info_hub.action_workflow examples/actions/rss_sync.yaml
 ```
 
-### Конфигурация Action Broker (пока без ActionRun/worker)
+### Конфигурация Action Broker и Action worker
 
 Поддерживается одна capability — `information.sync` — через Feedbrain HTTP API. Логические источники из Workflow должны быть явно привязаны к уже существующим подпискам Feedbrain.
 
@@ -67,17 +67,55 @@ ACTION_FEEDBRAIN_SOURCES_JSON={"ai_articles":11}
 # ACTION_FEEDBRAIN_URL=http://api:8000
 ```
 
-Broker не принимает адреса, пути HTTP или subscription ID из Action YAML: `with.source` — только логический алиас. По умолчанию bindings **пустые**, поэтому вызовы по ненастроенным источникам отклоняются. Изменение `.env` требует пересоздания соответствующего контейнера после появления execution worker. **Сейчас Broker ещё не подключён к API/worker и сам ничего не выполняет.**
+Broker не принимает адреса, пути HTTP или subscription ID из Action YAML: `with.source` — только логический алиас. По умолчанию bindings **пустые**, поэтому вызовы по ненастроенным источникам отклоняются. Изменение `.env` требует пересоздания `api` и `action-worker`. Broker исполняется только по запросу Run или из очереди worker; сама конфигурация ничего не запускает.
 
 Локальная проверка HTTP-контракта **без запуска реальной RSS-синхронизации** (не нужен PostgreSQL; тест поднимает собственный временный HTTP-сервер):
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_broker.py -q
+# Tests of ActionRun SQL models/worker require an isolated, migrated PostgreSQL.
 ```
+
+### Проверка ручного запуска Action через новый worker
+
+**Только после `git pull --ff-only origin main` и `docker compose up --build -d`.** Этот шаг действительно инициирует синхронизацию RSS. Выберите **только подписку, которую намеренно разрешено синхронизировать**, желательно отдельную тестовую. Не проверять на чужих/дорогих источниках; не запускать тестовые скрипты на постоянной БД с `RUN_DB_INTEGRATION_TESTS=1`.
+
+1. Получите реальные подписки: `Invoke-RestMethod http://127.0.0.1:8000/subscriptions`. Найдите `id` подходящей подписки.
+2. В локальном `.env` задайте, например, `ACTION_FEEDBRAIN_SOURCES_JSON={"ai_articles":11}`, **заменив 11 настоящим ID**. Это binding логического алиаса из `examples/actions/rss_sync.yaml` / сохранённого Action; без него API вернёт `409` до вызова Feedbrain. URL API внутри Docker по умолчанию — `http://api:8000`.
+3. Пересоздайте контейнеры изменённой конфигурацией: `docker compose up --build -d`. Проверяйте `docker compose ps -a`: миграция `20261104_0005` должна успешно завершиться, `api` — healthy, `worker` и **`action-worker`** — запущены. Для ошибок: `docker compose logs --tail=100 api action-worker worker migrate`.
+4. Используйте **уже созданный** Action #1, если у него `with.source: ai_articles`, или создайте отдельный Action по инструкции ниже.
+
+PowerShell (после выбора конкретного ID Action):
+
+```powershell
+$base = "http://127.0.0.1:8000"
+$actionId = 1  # Проверьте GET /actions/$actionId перед запуском!
+Invoke-RestMethod -Uri "$base/actions/$actionId"
+
+$run = Invoke-RestMethod -Method Post -Uri "$base/actions/$actionId/runs" `
+    -ContentType "application/json" -Body "{}"
+$run.id
+$run.status # queued
+do {
+    Start-Sleep -Seconds 2
+    $detail = Invoke-RestMethod -Uri "$base/action-runs/$($run.id)"
+    Write-Host $detail.status
+} while ($detail.status -in @("queued", "running"))
+$detail | ConvertTo-Json -Depth 15
+Invoke-RestMethod -Uri "$base/actions/$actionId/runs"
+```
+
+Ожидается: `POST` возвращает `202 queued`; отдельный Action worker берёт Run, вызывает Feedbrain `POST /subscriptions/{id}/sync` и ждёт конечного `IngestionRun`. В `GET /action-runs/{id}` будут зафиксированы версия Action, шаг, фактически использованный `feedbrain`, `feedbrain:ingestion_run:<id>`, статус, счётчики и итог. При ошибке — `failed` и `error_code`; `202` от Feedbrain **не равно** успешному завершению Action.
+
+**Проверяемые отказы:** ненастроенный алиас или Action без Workflow дают `409` и **не создают Run**; повторный запуск одного Action, пока предыдущий `queued/running`, тоже даёт `409`. Worker **не повторяет** неоднозначный внешний вызов после аварии: зависшее более двух часов выполнение помечается `interrupted`. Запуск с изменённой версией создаёт новый Run, не переписывает старый.
+
+**Ограничения:** автоматический Action Schedule пока не реализован; `schedule` в YAML остаётся только декларацией. HTTP API пока без auth, поэтому не открывайте его недоверенным клиентам и не назначайте избыточные bindings.
+
+Интеграционный набор `tests/test_action_run_integration.py` работает с мигрированной PostgreSQL и имитированным внешним HTTP-ответом. Запускать его можно **только** в отдельной одноразовой тестовой базе с `RUN_DB_INTEGRATION_TESTS=1`, а не на постоянном Feedbrain volume.
 
 ### Проверка Action Registry/API после обновления Docker
 
-Этот сценарий **создаёт тестовый Action в текущей базе**; его можно выполнять в локальном доверенном окружении, но **не** на посторонней/рабочей базе без согласования. Сначала выполните `git pull --ff-only origin main` и `docker compose up --build -d` по инструкции выше. Проверьте, что контейнер `migrate` завершился с кодом **0** и применил ревизию `20261104_0004`.
+Этот сценарий **создаёт тестовый Action в текущей базе**; его можно выполнять в локальном доверенном окружении, но **не** на посторонней/рабочей базе без согласования. Сначала выполните `git pull --ff-only origin main` и `docker compose up --build -d` по инструкции выше. Проверьте, что контейнер `migrate` завершился с кодом **0** и применил текущую ревизию `20261104_0005` (включая `0004` для Registry).
 
 В Windows PowerShell:
 
@@ -132,6 +170,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p test_connectors.py -q
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_content.py -q
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_workflow.py -q
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_broker.py -q
+# Tests of ActionRun SQL models/worker require an isolated, migrated PostgreSQL.
 python3 -m unittest discover -s tests -p test_structure.py -q
 git diff --check
 ```

@@ -17,8 +17,9 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
   and RSS/content docs contain feature-specific verification only. Avoid duplicating
   status and roadmap across files.
 - The **Action Registry models/API are verified** against running PostgreSQL.
-  Broker + Feedbrain HTTP adapter exist and passed isolated HTTP tests, but are
-  not connected to ActionRun/worker yet. Run history and scheduler remain planned.
+  Broker + Feedbrain adapter passed isolated HTTP tests. ActionRun/StepRun/Result,
+  API and separate Action worker are written but not yet tested against the live
+  PostgreSQL-backed execution API. Scheduler remains planned.
   Feedbrain is optional, not the mandatory data path.
 - External and internal services are black boxes behind accessible
   API/MCP/CLI/tool contracts. Prefer existing capabilities over reinventing them.
