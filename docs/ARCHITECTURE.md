@@ -179,7 +179,7 @@ Feedbrain — **опциональный Information Acquisition / Storage / Pro
 
 ## Реализация и границы
 
-Сейчас в этом репозитории **только Feedbrain**, реализованный как модульный монолит Python/FastAPI/PostgreSQL с API, отдельным worker и миграциями. **Action System, Tool Registry, ActionRun, Representation Registry, универсальный MCP-сервер и встроенный LLM здесь не реализованы.** Не создавать пустые модули под целевую схему заранее.
+Сейчас в этом репозитории работает **Feedbrain**, реализованный как модульный монолит Python/FastAPI/PostgreSQL с API, отдельным worker и миграциями. **Action Core начат только на уровне YAML-валидатора (`action_workflow.py`)**; Action Registry/API, Broker, ActionRun, Scheduler, Representation Registry, универсальный MCP-сервер и встроенный LLM здесь ещё не реализованы. Не создавать пустые модули под целевую схему заранее.
 
 Старый Draft 0.2 описывал преимущественно information/research backend с `ResearchRun`, `Evidence`, `Entity`, `Observation`, `Artifact` и встроенным LLM gateway. Эти понятия остаются возможными расширениями **при наличии задач**, но исследование теперь рассматривается как **частный случай Action**, а встроенный AI — как **опция**, не обязательная ступень.
 

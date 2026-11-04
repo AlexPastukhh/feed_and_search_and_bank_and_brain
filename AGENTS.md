@@ -16,8 +16,9 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 - `README.md` is a navigation/overview, `docs/DEVELOPMENT.md` is for operations,
   and RSS/content docs contain feature-specific verification only. Avoid duplicating
   status and roadmap across files.
-- The **Action System is planned, not implemented** in this repository.
-  Feedbrain is an optional information service, not the mandatory data path.
+- The **Action System V1 has only a YAML validator**; Action Registry, Broker,
+  execution history and scheduler remain planned. Feedbrain is an optional
+  information service, not the mandatory data path.
 - External and internal services are black boxes behind accessible
   API/MCP/CLI/tool contracts. Prefer existing capabilities over reinventing them.
   Do not invent tool availability or assume an external app exposes a specific API.

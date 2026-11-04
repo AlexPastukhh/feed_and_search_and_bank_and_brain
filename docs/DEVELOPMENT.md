@@ -47,6 +47,13 @@ docker compose ps -a
 - [RSS-FIRST-SLICE.md](RSS-FIRST-SLICE.md): создание RSS-источника/подписки, ручной и фоновый sync, идемпотентность.
 - [CONTENT-SEARCH.md](CONTENT-SEARCH.md): поиск по уже сохранённым публикациям и извлечение публичной HTML-статьи.
 
+Проверить **только YAML-контракт Action V1** после установки зависимостей
+(команда не сохраняет Action и не выполняет Workflow):
+
+```bash
+python -m info_hub.action_workflow examples/actions/rss_sync.yaml
+```
+
 HTTP API локально доступен по `http://127.0.0.1:8000`, интерактивная схема FastAPI — `/docs`, OpenAPI — `/openapi.json`. Из проверенного контейнера Fortis Repo на Docker Desktop API ранее был доступен по `http://host.docker.internal:8000`; это зависит от сети и не даёт полномочий на безопасный удалённый доступ. **У API пока нет авторизации.**
 
 ## Локальные Python-тесты
@@ -68,11 +75,12 @@ python3 -m compileall -q src alembic tests
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_feeds.py -q
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_connectors.py -q
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_content.py -q
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_workflow.py -q
 python3 -m unittest discover -s tests -p test_structure.py -q
 git diff --check
 ```
 
-Такие проверки **не заменяют Docker end-to-end**.
+В Fortis Repo без PyYAML **тесты чтения YAML пропускаются**, но проверки структуры документа выполняются; для полной проверки нужен установленный PyYAML (или Python venv с ним). Такие проверки **не заменяют Docker end-to-end**.
 
 ## CI
 

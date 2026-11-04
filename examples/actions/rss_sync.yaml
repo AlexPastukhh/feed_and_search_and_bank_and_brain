@@ -1,0 +1,13 @@
+name: Обновить архив AI-публикаций
+instruction: |
+  Синхронизируй выбранный источник и сохрани новые
+  публикации для последующих исследований.
+workflow:
+  schema: 1
+  steps:
+    - id: refresh_feed
+      capability: information.sync
+      with:
+        source: ai_articles
+schedule:
+  every_minutes: 60
