@@ -16,10 +16,10 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 - `README.md` is a navigation/overview, `docs/DEVELOPMENT.md` is for operations,
   and RSS/content docs contain feature-specific verification only. Avoid duplicating
   status and roadmap across files.
-- The **Action Registry models/API are verified** against running PostgreSQL.
-  Broker + Feedbrain adapter passed isolated HTTP tests. ActionRun/StepRun/Result,
-  API and separate Action worker are written but not yet tested against the live
-  PostgreSQL-backed execution API. Scheduler remains planned.
+- The **Action Registry, Broker, ActionRun/StepRun/Result and separate Action
+  worker are verified on the live PostgreSQL-backed API** via Fortis Repo:
+  Action #1 v3 / ActionRun #1 completed through Feedbrain IngestionRun #6.
+  Scheduler and live failure/restart scenarios remain planned.
   Feedbrain is optional, not the mandatory data path.
 - External and internal services are black boxes behind accessible
   API/MCP/CLI/tool contracts. Prefer existing capabilities over reinventing them.
