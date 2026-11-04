@@ -54,6 +54,27 @@ docker compose ps -a
 python -m info_hub.action_workflow examples/actions/rss_sync.yaml
 ```
 
+### Конфигурация Action Broker (пока без ActionRun/worker)
+
+Поддерживается одна capability — `information.sync` — через Feedbrain HTTP API. Логические источники из Workflow должны быть явно привязаны к уже существующим подпискам Feedbrain.
+
+В `.env` Docker Compose (пример — в `.env.example`):
+
+```dotenv
+# Найдите ID в GET /subscriptions; значение ниже исключительно пример.
+ACTION_FEEDBRAIN_SOURCES_JSON={"ai_articles":11}
+# Внутри Docker Compose по умолчанию http://api:8000
+# ACTION_FEEDBRAIN_URL=http://api:8000
+```
+
+Broker не принимает адреса, пути HTTP или subscription ID из Action YAML: `with.source` — только логический алиас. По умолчанию bindings **пустые**, поэтому вызовы по ненастроенным источникам отклоняются. Изменение `.env` требует пересоздания соответствующего контейнера после появления execution worker. **Сейчас Broker ещё не подключён к API/worker и сам ничего не выполняет.**
+
+Локальная проверка HTTP-контракта **без запуска реальной RSS-синхронизации** (не нужен PostgreSQL; тест поднимает собственный временный HTTP-сервер):
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_broker.py -q
+```
+
 ### Проверка Action Registry/API после обновления Docker
 
 Этот сценарий **создаёт тестовый Action в текущей базе**; его можно выполнять в локальном доверенном окружении, но **не** на посторонней/рабочей базе без согласования. Сначала выполните `git pull --ff-only origin main` и `docker compose up --build -d` по инструкции выше. Проверьте, что контейнер `migrate` завершился с кодом **0** и применил ревизию `20261104_0004`.
@@ -110,6 +131,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p test_feeds.py -q
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_connectors.py -q
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_content.py -q
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_workflow.py -q
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_broker.py -q
 python3 -m unittest discover -s tests -p test_structure.py -q
 git diff --check
 ```
