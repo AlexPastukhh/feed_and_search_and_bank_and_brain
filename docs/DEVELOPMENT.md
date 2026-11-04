@@ -54,6 +54,40 @@ docker compose ps -a
 python -m info_hub.action_workflow examples/actions/rss_sync.yaml
 ```
 
+### Проверка Action Registry/API после обновления Docker
+
+Этот сценарий **создаёт тестовый Action в текущей базе**; его можно выполнять в локальном доверенном окружении, но **не** на посторонней/рабочей базе без согласования. Сначала выполните `git pull --ff-only origin main` и `docker compose up --build -d` по инструкции выше. Проверьте, что контейнер `migrate` завершился с кодом **0** и применил ревизию `20261104_0004`.
+
+В Windows PowerShell:
+
+```powershell
+$base = "http://127.0.0.1:8000"
+$yaml = Get-Content ".\examples\actions\rss_sync.yaml" -Raw -Encoding UTF8
+$body = @{ definition_yaml = $yaml } | ConvertTo-Json -Depth 5
+$utf8 = [System.Text.Encoding]::UTF8
+
+$action = Invoke-RestMethod -Method Post -Uri "$base/actions" `
+    -ContentType "application/json; charset=utf-8" -Body ($utf8.GetBytes($body))
+$action.id
+$action.current_version_number        # 1
+$action.current_version.schedule_active # False: расписание пока НЕ работает
+Invoke-RestMethod -Method Get -Uri "$base/actions/$($action.id)"
+
+$changed = $yaml.Replace("Синхронизируй", "Повторно синхронизируй")
+$edit = @{ definition_yaml = $changed; expected_version = 1 } | ConvertTo-Json -Depth 5
+$version2 = Invoke-RestMethod -Method Post -Uri "$base/actions/$($action.id)/versions" `
+    -ContentType "application/json; charset=utf-8" -Body ($utf8.GetBytes($edit))
+$version2.current_version_number      # 2
+Invoke-RestMethod -Method Get -Uri "$base/actions/$($action.id)/versions"
+Invoke-RestMethod -Method Get -Uri "$base/actions/$($action.id)/versions/1"
+```
+
+Ожидается: **201** при создании/публикации; v1 и v2 доступны независимо, старый YAML не изменён; повторная публикация с `expected_version: 1` вернёт **409**. При повреждённом YAML — **422**. Вызова Feedbrain, `ActionRun` и активации расписания **пока нет**.
+
+Доступ к новым маршрутам из ChatGPT через Fortis Repo следует проверить **отдельно, после обновления Windows-контейнеров** через уже существующий HTTP-доступ `http://host.docker.internal:8000`; сам факт наличия маршрутов в исходниках ещё не доказывает доступность по сети.
+
+Интеграционный тест `tests/test_action_registry_integration.py` использует настоящую PostgreSQL, проверяет также запрет SQL-изменения старой версии. Запускайте его **только на отдельной одноразовой мигрированной базе** c `RUN_DB_INTEGRATION_TESTS=1`, никогда на постоянном Feedbrain volume.
+
 HTTP API локально доступен по `http://127.0.0.1:8000`, интерактивная схема FastAPI — `/docs`, OpenAPI — `/openapi.json`. Из проверенного контейнера Fortis Repo на Docker Desktop API ранее был доступен по `http://host.docker.internal:8000`; это зависит от сети и не даёт полномочий на безопасный удалённый доступ. **У API пока нет авторизации.**
 
 ## Локальные Python-тесты

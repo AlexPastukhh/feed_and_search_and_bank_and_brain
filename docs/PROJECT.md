@@ -18,7 +18,7 @@
 
 ## Current State — что есть прямо сейчас
 
-**Коротко:** Feedbrain уже можно запустить и использовать как RSS-архив с поиском. **Action System, модели Actions и механизм управления их запусками пока не реализованы.** Реальный AI получил доступ к Feedbrain через Fortis Repo; это не готовый Action Executor.
+**Коротко:** Feedbrain уже можно запустить и использовать как RSS-архив с поиском. **Action Registry/API реализованы в коде, но PostgreSQL/Docker-тест не проведён; Broker, ActionRun и планировщик ещё отсутствуют.** Ранее внешний AI читал только Feedbrain через Fortis Repo; доступ к новому Action API пока не подтверждён.
 
 | Компонент | Текущее состояние | Проверка/ограничение |
 |---|---|---|
@@ -28,16 +28,16 @@
 | HTML content | Trafilatura, извлечение доступного текста публичной статьи | **Только по запросу**, проверено на одной статье |
 | Content search | PostgreSQL FTS, `ContentChunk`, поиск по заголовку и фрагментам | Поиск `weight` возвращал реальные `chunk_id` |
 | External AI access | HTTP API Feedbrain доступен через Fortis Repo | На проверенной сети `host.docker.internal:8000`; не универсальная гарантия |
-| Action Core | **Частично: реализован валидатор Workflow V1** | YAML parsing/strict schema протестированы; `Action`/`ActionVersion`/`ActionRun`/`ActionResult` в БД/API ещё нет |
+| Action Core | **YAML-валидатор проверен; Action Registry/API написаны** | Модели `Action`/`ActionVersion`, миграция `0004` и API в коде; PostgreSQL интеграция **не проверена**, `ActionRun`/`ActionResult` пока нет |
 | Tools/Execution | **Не реализована единая граница Action execution** | Ручной доступ ChatGPT к инструментам ≠ автоматический исполнитель |
 | Schedules | RSS polling реализован; Action scheduling **нет** | Сохранение Action не запускает AI по времени |
 | Representations | Поиск по chunks есть; универсальный менеджер представлений **не реализован** | Внешние таблицы, графы, Goal Map могут работать напрямую |
-| Security | API Feedbrain без аутентификации | Local-only прототип; нет READ/ADMIN и scoped token |
+| Security | API Feedbrain **и новые Action endpoints** без аутентификации | Local-only прототип; нет READ/ADMIN и scoped token |
 | CI и надёжность | Есть шаблон CI; активного workflow и проверенного backup/restore нет | Интеграционный набор требует одноразовой PostgreSQL БД |
 
 **Данные и точность:** RSS-хранилище сохраняет исходный XML item, не полный сырой HTML; статус `full` означает извлечённый доступный основной текст, не обход paywall. FTS ищет по fragments, поэтому несколько hits одной статьи — ожидаемое поведение; семантического поиска нет. Фоновая массовая веб-экстракция, расширенный импорт PDF/CSV/JSON, generic API connectors и встроенная LLM не реализованы.
 
-**Следующий шаг:** **Phase 1 — Action Registry/API**: валидатор YAML готов, далее сохраняем Actions и версии, затем Broker → Feedbrain, история и расписание. Подробности: [ACTION-CORE.md](ACTION-CORE.md). Feedbrain расширяем только под конкретную задачу.
+**Следующий шаг:** провести **Docker/PostgreSQL-проверку Action Registry** и запросы через Fortis Repo, затем реализовать **Broker → Feedbrain**, историю и расписание. Контракт: [ACTION-CORE.md](ACTION-CORE.md). Feedbrain расширяем только под конкретную задачу.
 
 ---
 
@@ -56,6 +56,7 @@
 | 2026-11-04 | Уточнён следующий этап: Action как AI-читаемая инструкция с необязательным декларативным Workflow; AI и программы как равноправные инструменты; Broker/исполнение/локальные модели как будущие возможности. Подробности отделены от общего плана по DRY. | [ACTION-CORE.md](ACTION-CORE.md); проектное решение, **код не реализован** |
 | 2026-11-04 | Сузили **V1 до проверяемого end-to-end**: YAML с маленькой схемой, Action Registry, Broker с Feedbrain adapter, ручной и запланированный запуск, история; локальные модели и вызовы AI внутри workflow отложены. | [ACTION-CORE.md](ACTION-CORE.md); согласование плана, **код не реализован** |
 | 2026-11-04 | **Первый код Action Core:** Workflow V1 YAML/валидатор, отдельная проверка возможности исполнения, пример и CLI; без БД/API/вызовов Feedbrain | `src/info_hub/action_workflow.py`, `tests/test_action_workflow.py`: 24 теста прошли с PyYAML 6.0.3 в Python venv; Docker runtime **не проверен** |
+| 2026-11-04 | Добавлены `Action`/`ActionVersion`, миграция `0004` (append-only trigger), Action Registry HTTP API, optimistic concurrency и интеграционный тест. Исполнение Actions отсутствует. | `26aff90`; Python `compileall` и 41 локальный unit-тест прошли; **интеграция с PostgreSQL и реальный доступ через Fortis Repo ещё не проверены** |
 
 **Новая запись должна отвечать:** *что сделано/изменено*, *почему*, *чем проверено*, *что осталось неготовым*. Наличие коммита не доказывает прохождение интеграционного теста.
 
@@ -78,7 +79,7 @@
 **Подробная спецификация и границы:** [ACTION-CORE.md](ACTION-CORE.md). Центральная задача: доказать полный цикл **создание Action → сохранение → чтение через Fortis Repo → ручное выполнение YAML Workflow через Broker и Feedbrain → история → автоматический запуск по расписанию**. Без LLM в исполнительном контуре.
 
 - [x] **Минимальный формат:** строгий YAML V1, читаемая инструкция, необязательный Workflow, последовательные шаги, capability и параметры, интервал расписания. Проверены 24 теста, включая реальный YAML parsing; **это пока только валидатор**, не исполнитель.
-- [ ] **Registry/API:** создать/прочитать Action, сохранить неизменяемые версии, выдать Action внешнему AI через доступный HTTP-инструмент Fortis Repo.
+- [ ] **Registry/API — код написан, интеграция ожидает проверки:** модели/миграция/HTTP API и неизменяемые версии; ещё проверить реальный PostgreSQL, сценарий v1→v2 и доступ AI через Fortis Repo. До этих проверок пункт **не закрываем**.
 - [ ] **Broker/adapter:** реализовать `information.sync` через существующий Feedbrain API с настройкой логического источника и ожиданием завершения асинхронного `IngestionRun`.
 - [ ] **Execution/history:** очередь ActionRun, worker, шаги/результаты, статусы, ошибки, реальные идентификаторы Feedbrain, неизменность истории v1/v2.
 - [ ] **Action schedule:** автоматические запуски по простому интервалу и защита от двойного выполнения, повторов/зависших задач; отдельная от RSS polling логика.
@@ -143,4 +144,4 @@
 
 ## Следующее конкретное действие
 
-**Далее — Action Registry/API** (модели, версии, миграции и чтение/создание через Fortis Repo), затем `Action → Broker → Feedbrain`, очередь/история и расписание. **Переход к Phase 2 только после проверки ручного и автоматического запуска на Docker.** Из Phase 1 выполнен только контракт YAML/валидатор.
+**Далее — проверить Action Registry/API** на Windows Docker/PostgreSQL и через Fortis Repo, затем реализовать `Action → Broker → Feedbrain`, очередь/историю и расписание. **Переход к Phase 2 только после проверки ручного и автоматического запуска на Docker.** Полностью закрыт пока только контракт YAML/валидатор.

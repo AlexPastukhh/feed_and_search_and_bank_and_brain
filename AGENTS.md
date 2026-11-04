@@ -7,8 +7,8 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 - Canonical vision, vocabulary and boundaries: `docs/ARCHITECTURE.md`.
 - Living project tracker (Current State / History / Plan): `docs/PROJECT.md`;
   security: `docs/SECURITY.md`.
-- Detailed planned Action Core design: `docs/ACTION-CORE.md` (not implemented).
-  Keep detailed design here, status and checkboxes only in `docs/PROJECT.md`.
+- Action Core V1 design, API and intended execution: `docs/ACTION-CORE.md`.
+  Keep design there; status and checkboxes only in `docs/PROJECT.md`.
 - After verified work, update `docs/PROJECT.md`: check off only validated tasks,
   refresh current state, and append a dated history entry with commit/evidence.
   When plans change, record why; never erase past milestones or claim
@@ -16,9 +16,9 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 - `README.md` is a navigation/overview, `docs/DEVELOPMENT.md` is for operations,
   and RSS/content docs contain feature-specific verification only. Avoid duplicating
   status and roadmap across files.
-- The **Action System V1 has only a YAML validator**; Action Registry, Broker,
-  execution history and scheduler remain planned. Feedbrain is an optional
-  information service, not the mandatory data path.
+- The **Action Registry models/API now exist in code** but are not yet verified
+  against PostgreSQL. Broker, execution history and scheduler remain planned.
+  Feedbrain is optional, not the mandatory data path.
 - External and internal services are black boxes behind accessible
   API/MCP/CLI/tool contracts. Prefer existing capabilities over reinventing them.
   Do not invent tool availability or assume an external app exposes a specific API.
