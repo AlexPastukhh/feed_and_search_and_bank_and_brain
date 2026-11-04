@@ -31,12 +31,12 @@ curl.exe http://127.0.0.1:8000/health/live
 curl.exe http://127.0.0.1:8000/health/ready
 ```
 
-`compose.yaml` поднимает PostgreSQL, однократный `migrate` (Alembic), FastAPI `api` и **рабочий `worker`**. Worker обрабатывает очередь и планирует синхронизации RSS; статус `migrate: Exited (0)` ожидаем.
+`compose.yaml` поднимает PostgreSQL, однократный `migrate` (Alembic), FastAPI `api`, **RSS worker** и **отдельный `action-worker`**. RSS worker планирует синхронизации Feedbrain; Action worker выполняет ручные и явно включённые запланированные Actions. Статус `migrate: Exited (0)` ожидаем.
 
 Диагностика:
 
 ```powershell
-docker compose logs --tail=100 api worker migrate
+docker compose logs --tail=100 api worker action-worker migrate
 docker compose ps -a
 ```
 
@@ -115,13 +115,50 @@ Invoke-RestMethod -Uri "$base/actions/$actionId/runs"
 
 **Проверяемые отказы:** неизвестный `tool`, неподдерживаемый `source.type` или Action без Workflow дают `409` и **не создают Run**; повторный запуск одного Action, пока предыдущий `queued/running`, тоже даёт `409`. Worker **не повторяет** неоднозначный внешний вызов после аварии: зависшее более двух часов выполнение помечается `interrupted`. Запуск с изменённой версией создаёт новый Run, не переписывает старый.
 
-**Ограничения:** автоматический Action Schedule пока не реализован; `schedule` в YAML остаётся только декларацией. HTTP API пока без auth, поэтому не открывайте его недоверенным клиентам; создание Action со ссылкой на любую доступную подписку сейчас не требует отдельных permissions.
+**Ограничения:** Scheduler добавлен в код, но требует отдельного явного включения `PUT /actions/{id}/schedule`; `schedule` в YAML остаётся только декларацией. HTTP API пока без auth: не давайте недоверенным клиентам возможности включать повторяющиеся действия или запускать подписки.
 
 Интеграционный набор `tests/test_action_run_integration.py` работает с мигрированной PostgreSQL и имитированным внешним HTTP-ответом. Запускать его можно **только** в отдельной одноразовой тестовой базе с `RUN_DB_INTEGRATION_TESTS=1`, а не на постоянном Feedbrain volume.
 
+### Проверка Action Scheduler V1 после обновления Windows Docker
+
+**На момент написания это инструкции для проверки, а не подтверждённый результат:** новый Scheduler и миграция `20261104_0006` ещё не проверены на Windows Docker. После обновления убедитесь, что `migrate` завершился `Exited (0)`, `api` — healthy и `action-worker` — работает.
+
+1. Для **тестовой** подписки Feedbrain выберите Action с подходящими `tool`, `capability` и `source`. Помните, что у подписки может быть собственное RSS-расписание. Не включайте короткий Action-интервал для нагруженного источника без необходимости.
+2. Прочитайте состояние расписания: `GET /actions/{id}/schedule` вернёт `enabled: false`, если оно ещё не настроено. **Само поле `schedule.every_minutes` в YAML ничего не включает.**
+3. Включите расписание явно через API. Для проверки можно временно поставить интервал **2 минуты**, но это действительно будет **повторно запускать Feedbrain**:
+
+```powershell
+$base = "http://127.0.0.1:8000"
+$actionId = 1 # Замените на ID выбранного тестового Action с поддерживаемым Workflow
+Invoke-RestMethod -Uri "$base/actions/$actionId/schedule"
+
+$enable = @{ enabled = $true; every_minutes = 2 } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri "$base/actions/$actionId/schedule" `
+    -ContentType "application/json" -Body $enable
+
+# next_run_at: не ранее чем через 2 минуты после активации
+Invoke-RestMethod -Uri "$base/actions/$actionId/schedule"
+Invoke-RestMethod -Uri "$base/actions/$actionId/runs"
+```
+
+4. **Не запускайте Action вручную для этого теста.** Проверяйте `GET /actions/{id}/runs` после каждого интервала. У двух новых Runs должно быть `initiated_by: "schedule"`, разные Run ID, конечный статус и StepRun/ActionResult с реальным `feedbrain:ingestion_run:{id}`.
+5. Если Run всё ещё `queued/running` к следующему интервалу, Scheduler **не создаёт дубликат**, а пишет `last_skip_reason: active_run`; после пропусков/выключенного worker **не воспроизводит весь backlog**. `next_run_at`, `last_enqueued_at` и `last_skipped_at` видны через `GET /actions/{id}/schedule`.
+6. Для проверки сохранения расписания перезапустите **только** `action-worker` командой `docker compose restart action-worker`, проверьте, что `next_run_at` сохранился, и наблюдайте ещё один запланированный Run (без ручного POST). **Отключите расписание после проверки**:
+
+```powershell
+$disable = @{ enabled = $false } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri "$base/actions/$actionId/schedule" `
+    -ContentType "application/json" -Body $disable
+Invoke-RestMethod -Uri "$base/actions/$actionId/schedule"
+```
+
+При выключении **новые** Runs не создаются, но уже запущенный Run не прерывается. `PUT` с `{"enabled":true}` без `every_minutes` использует ранее сохранённый интервал либо `schedule.every_minutes` из текущей версии YAML. Все поля расписания живут **отдельно от неизменяемых ActionVersion**. Новый Scheduled Run использует **текущую** версию Action на момент постановки в очередь.
+
+Тесты SQL/API/worker: `tests/test_action_schedule_integration.py` (и `tests/test_action_run_integration.py`) **только на отдельной одноразовой мигрированной PostgreSQL** с `RUN_DB_INTEGRATION_TESTS=1`; **не запускать** на постоянном Feedbrain volume. Базовые расчёты интервалов доступны без БД: `PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_schedule_time.py -q`.
+
 ### Проверка Action Registry/API после обновления Docker
 
-Этот сценарий **создаёт тестовый Action в текущей базе**; его можно выполнять в локальном доверенном окружении, но **не** на посторонней/рабочей базе без согласования. Сначала выполните `git pull --ff-only origin main` и `docker compose up --build -d` по инструкции выше. Проверьте, что контейнер `migrate` завершился с кодом **0** и применил текущую ревизию `20261104_0005` (включая `0004` для Registry).
+Этот сценарий **создаёт тестовый Action в текущей базе**; его можно выполнять в локальном доверенном окружении, но **не** на посторонней/рабочей базе без согласования. Сначала выполните `git pull --ff-only origin main` и `docker compose up --build -d` по инструкции выше. Проверьте, что контейнер `migrate` завершился с кодом **0** и применил текущую ревизию `20261104_0006` (включая `0004` Registry и `0005` ActionRun).
 
 В Windows PowerShell:
 
@@ -135,7 +172,7 @@ $action = Invoke-RestMethod -Method Post -Uri "$base/actions" `
     -ContentType "application/json; charset=utf-8" -Body ($utf8.GetBytes($body))
 $action.id
 $action.current_version_number        # 1
-$action.current_version.schedule_active # False: расписание пока НЕ работает
+$action.current_version.schedule_active # False, пока расписание явно не включено
 Invoke-RestMethod -Method Get -Uri "$base/actions/$($action.id)"
 
 $changed = $yaml.Replace("Синхронизируй", "Повторно синхронизируй")
@@ -147,7 +184,7 @@ Invoke-RestMethod -Method Get -Uri "$base/actions/$($action.id)/versions"
 Invoke-RestMethod -Method Get -Uri "$base/actions/$($action.id)/versions/1"
 ```
 
-Ожидается: **201** при создании/публикации; v1 и v2 доступны независимо, старый YAML не изменён; повторная публикация с `expected_version: 1` вернёт **409**. При повреждённом YAML — **422**. Вызова Feedbrain, `ActionRun` и активации расписания **пока нет**.
+Ожидается: **201** при создании/публикации; v1 и v2 доступны независимо, старый YAML не изменён; повторная публикация с `expected_version: 1` вернёт **409**. При повреждённом YAML — **422**. Создание Action/версии **само по себе** не инициирует Feedbrain и не включает расписание.
 
 Доступ к новым маршрутам из ChatGPT через Fortis Repo следует проверить **отдельно, после обновления Windows-контейнеров** через уже существующий HTTP-доступ `http://host.docker.internal:8000`; сам факт наличия маршрутов в исходниках ещё не доказывает доступность по сети.
 
