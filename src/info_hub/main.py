@@ -3,6 +3,7 @@ import logging
 
 from fastapi import FastAPI
 
+from info_hub.action_api import router as actions_router
 from info_hub.api import router as sources_router
 from info_hub.health import router as health_router
 from info_hub.search_api import router as search_router
@@ -19,5 +20,6 @@ app = FastAPI(
     description="Source/subscription registry and first RSS ingestion slice.",
 )
 app.include_router(health_router)
+app.include_router(actions_router)
 app.include_router(sources_router)
 app.include_router(search_router)
