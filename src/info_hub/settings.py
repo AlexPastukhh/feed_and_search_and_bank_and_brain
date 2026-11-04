@@ -8,7 +8,6 @@ class Settings(BaseSettings):
     database_url: str
     log_level: str = "INFO"
     action_feedbrain_url: str = "http://api:8000"
-    action_feedbrain_sources_json: str = "{}"
 
     model_config = SettingsConfigDict(
         env_file=".env",

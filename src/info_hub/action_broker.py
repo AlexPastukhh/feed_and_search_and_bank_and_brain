@@ -63,31 +63,49 @@ class CapabilityAdapter(Protocol):
 
 
 class CapabilityBroker:
-    """Explicit capability-to-adapter bindings. No tool discovery or AI planning in V1."""
+    """Explicit tool name + capability selection. No AI planning in V1."""
 
     def __init__(self, adapters: list[CapabilityAdapter]) -> None:
         self._adapters: dict[str, CapabilityAdapter] = {}
         for adapter in adapters:
-            for capability in adapter.capabilities:
-                if capability in self._adapters:
-                    raise ValueError(f"Duplicate adapter for capability: {capability}")
-                self._adapters[capability] = adapter
+            if adapter.name in self._adapters:
+                raise ValueError(f"Duplicate tool adapter: {adapter.name}")
+            self._adapters[adapter.name] = adapter
 
     @property
     def capabilities(self) -> frozenset[str]:
-        return frozenset(self._adapters)
+        return frozenset(
+            capability for adapter in self._adapters.values()
+            for capability in adapter.capabilities
+        )
+
+    def _adapter_for(self, step: Mapping[str, Any]) -> CapabilityAdapter:
+        tool = step["tool"]
+        adapter = self._adapters.get(tool)
+        if adapter is None:
+            raise ToolExecutionError(
+                "tool_unavailable", f"Tool is not available: {tool}", tool=tool,
+            )
+        if step["capability"] not in adapter.capabilities:
+            raise ToolExecutionError(
+                "capability_unavailable",
+                f"Tool {tool} does not implement {step['capability']}",
+                tool=tool,
+            )
+        return adapter
 
     def preflight(self, definition: Mapping[str, Any]) -> list[dict[str, Any]]:
-        """Fail before any side effects when a step has no usable adapter/binding."""
+        """Validate all explicit tool/operation/argument choices before any side effects."""
         validated = require_executable_workflow(definition, self.capabilities)
         steps = validated["workflow"]["steps"]
         for step in steps:
-            adapter = self._adapters[step["capability"]]
-            adapter.validate_parameters(step["capability"], step["with"])
+            self._adapter_for(step).validate_parameters(
+                step["capability"], step["with"],
+            )
         return steps
 
-    def tool_name_for(self, capability: str) -> str:
-        return self._adapters[capability].name
+    def tool_name_for(self, step: Mapping[str, Any]) -> str:
+        return self._adapter_for(step).name
 
     def dispatch_step(
         self, step: Mapping[str, Any],
@@ -106,7 +124,7 @@ class CapabilityBroker:
         )
         normalized = definition["workflow"]["steps"][0]
         capability = normalized["capability"]
-        adapter = self._adapters[capability]
+        adapter = self._adapter_for(normalized)
         adapter.validate_parameters(capability, normalized["with"])
         result = adapter.execute(
             capability, normalized["with"], on_external_ref=on_external_ref,
@@ -133,13 +151,10 @@ class CapabilityBroker:
 
 
 def configured_broker() -> CapabilityBroker:
-    """Build the broker from trusted runtime configuration, never from Action YAML."""
-    from info_hub.feedbrain_adapter import FeedbrainSyncAdapter, load_feedbrain_bindings
+    """Load allowed adapters from runtime settings; Action YAML selects among them."""
+    from info_hub.feedbrain_adapter import FeedbrainSyncAdapter
     from info_hub.settings import get_settings
 
     settings = get_settings()
-    bindings = load_feedbrain_bindings(settings.action_feedbrain_sources_json or "{}")
-    adapter = FeedbrainSyncAdapter(
-        base_url=settings.action_feedbrain_url, source_bindings=bindings,
-    )
+    adapter = FeedbrainSyncAdapter(base_url=settings.action_feedbrain_url)
     return CapabilityBroker([adapter])

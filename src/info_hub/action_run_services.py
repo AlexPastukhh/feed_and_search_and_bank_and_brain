@@ -181,7 +181,7 @@ def process_action_run(run_id: int, broker: CapabilityBroker) -> None:
 
     for step in steps:
         step_row_id = _create_step(
-            run_id, step, broker.tool_name_for(step["capability"]),
+            run_id, step, broker.tool_name_for(step),
         )  # durable before external side effects
         try:
             outcome = broker.dispatch_step(

@@ -22,8 +22,9 @@ def sample_action():
             "schema": 1,
             "steps": [{
                 "id": "refresh",
+                "tool": "feedbrain",
                 "capability": "information.sync",
-                "with": {"source": "ai_articles"},
+                "with": {"source": {"type": "subscription", "id": 11}},
             }],
         },
         "schedule": {"every_minutes": 60},
@@ -40,7 +41,10 @@ class ActionDocumentTests(unittest.TestCase):
     def test_accepts_example_and_preserves_meaning(self):
         doc = validate_action_document(sample_action())
         self.assertEqual(doc["workflow"]["steps"][0]["capability"], "information.sync")
-        self.assertEqual(doc["workflow"]["steps"][0]["with"]["source"], "ai_articles")
+        self.assertEqual(
+            doc["workflow"]["steps"][0]["with"]["source"],
+            {"type": "subscription", "id": 11},
+        )
         self.assertEqual(doc["schedule"]["every_minutes"], 60)
 
     def test_rejects_empty_instruction_and_name(self):
@@ -78,19 +82,40 @@ class ActionDocumentTests(unittest.TestCase):
                 with self.assertRaises(WorkflowValidationError):
                     validate_action_document(doc)
 
-    def test_rejects_missing_or_bad_sync_source(self):
-        for params in ({}, {"subscription_id": 1}, {"source": "rss/news"},
-                       {"source": ""}, {"source": 12}, {"source": "feed", "url": "x"}):
+    def test_tool_specific_source_is_not_hardcoded_into_core(self):
+        for source in (
+            {"type": "subscription", "id": 11},
+            {"type": "folder", "path": "project/articles"},
+            {"type": "collection", "name": "AI"},
+            "future-source-ref",
+        ):
+            with self.subTest(source=source):
+                doc = sample_action()
+                doc["workflow"]["steps"][0]["tool"] = "future_tool"
+                doc["workflow"]["steps"][0]["with"] = {"source": source}
+                parsed = validate_action_document(doc)
+                self.assertEqual(parsed["workflow"]["steps"][0]["with"]["source"], source)
+
+    def test_rejects_invalid_tool_names(self):
+        for tool in (None, "", "Feedbrain", "my tool", "tool/../other", 11):
             doc = sample_action()
-            doc["workflow"]["steps"][0]["with"] = params
-            with self.subTest(params=params):
+            doc["workflow"]["steps"][0]["tool"] = tool
+            with self.subTest(tool=tool):
                 with self.assertRaises(WorkflowValidationError):
                     validate_action_document(doc)
+
+    def test_legacy_step_without_tool_is_not_executable(self):
+        doc = sample_action()
+        del doc["workflow"]["steps"][0]["tool"]
+        with self.assertRaises(WorkflowValidationError):
+            require_executable_workflow(doc, {"information.sync"})
 
     def test_rejects_duplicate_step_ids(self):
         doc = sample_action()
         doc["workflow"]["steps"].append({
-            "id": "refresh", "capability": "information.sync", "with": {"source": "second"},
+            "id": "refresh", "tool": "feedbrain",
+            "capability": "information.sync",
+            "with": {"source": {"type": "subscription", "id": 22}},
         })
         with self.assertRaisesRegex(WorkflowValidationError, "duplicate step"):
             validate_action_document(doc)
@@ -107,7 +132,8 @@ class ActionDocumentTests(unittest.TestCase):
         for length in (0, 25):
             doc = sample_action()
             doc["workflow"]["steps"] = [
-                {"id": f"step_{i}", "capability": "data.read"} for i in range(length)
+                {"id": f"step_{i}", "tool": "another_tool", "capability": "data.read"}
+                for i in range(length)
             ]
             with self.subTest(length=length):
                 with self.assertRaises(WorkflowValidationError):
@@ -118,7 +144,8 @@ class ActionDocumentTests(unittest.TestCase):
                       list(range(101))):
             doc = sample_action()
             doc["workflow"]["steps"][0] = {
-                "id": "future", "capability": "data.read", "with": {"query": value},
+                "id": "future", "tool": "another_tool",
+                "capability": "data.read", "with": {"query": value},
             }
             with self.subTest(value_type=type(value).__name__):
                 with self.assertRaises(WorkflowValidationError):
@@ -127,7 +154,7 @@ class ActionDocumentTests(unittest.TestCase):
     def test_accepts_future_capability_as_non_executable_draft(self):
         doc = sample_action()
         doc["workflow"]["steps"][0] = {
-            "id": "future", "capability": "data.reconcile",
+            "id": "future", "tool": "another_tool", "capability": "data.reconcile",
             "with": {"params": {"limit": 25, "keywords": ["ai", "games"]}},
         }
         parsed = validate_action_document(doc)
@@ -153,9 +180,10 @@ class ActionDocumentTests(unittest.TestCase):
     def test_normalization_is_independent_of_input(self):
         raw = sample_action()
         normalized = validate_action_document(raw)
-        raw["workflow"]["steps"][0]["with"]["source"] = "changed"
+        raw["workflow"]["steps"][0]["with"]["source"]["id"] = 23
         self.assertEqual(
-            normalized["workflow"]["steps"][0]["with"]["source"], "ai_articles"
+            normalized["workflow"]["steps"][0]["with"]["source"],
+            {"type": "subscription", "id": 11},
         )
 
 
@@ -169,9 +197,12 @@ workflow:
   schema: 1
   steps:
     - id: refresh_feed
+      tool: feedbrain
       capability: information.sync
       with:
-        source: ai_articles
+        source:
+          type: subscription
+          id: 11
 schedule:
   every_minutes: 60
 """
@@ -184,7 +215,10 @@ schedule:
     def test_parses_document_like_compose(self):
         doc = parse_action_yaml(self.EXAMPLE)
         self.assertEqual(doc["name"], "Обновить архив")
-        self.assertEqual(doc["workflow"]["steps"][0]["with"]["source"], "ai_articles")
+        self.assertEqual(
+            doc["workflow"]["steps"][0]["with"]["source"],
+            {"type": "subscription", "id": 11},
+        )
         self.assertEqual(doc["schedule"]["every_minutes"], 60)
 
     def test_parses_instruction_only(self):
@@ -223,6 +257,7 @@ workflow:
   schema: 1
   steps:
     - id: future
+      tool: other_tool
       capability: data.read
       with:
         published_on: 2026-11-04

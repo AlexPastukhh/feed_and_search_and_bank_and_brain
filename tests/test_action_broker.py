@@ -6,10 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from info_hub.action_broker import CapabilityBroker, ToolExecutionError
 from info_hub.action_workflow import WorkflowValidationError
-from info_hub.feedbrain_adapter import (
-    FeedbrainSyncAdapter, _http_json, load_feedbrain_bindings,
-    validate_feedbrain_bindings,
-)
+from info_hub.feedbrain_adapter import FeedbrainSyncAdapter, _http_json
 
 
 class FakeClock:
@@ -58,7 +55,6 @@ def make_adapter(responses, **overrides):
     clock = FakeClock()
     options = {
         "base_url": "http://api:8000",
-        "source_bindings": {"ai_articles": 11},
         "transport": transport,
         "monotonic": clock.monotonic,
         "sleep": clock.sleep,
@@ -70,9 +66,12 @@ def make_adapter(responses, **overrides):
     return FeedbrainSyncAdapter(**options), transport, clock
 
 
-def step(source="ai_articles", capability="information.sync"):
+def step(source=None, capability="information.sync", tool="feedbrain"):
+    if source is None:
+        source = {"type": "subscription", "id": 11}
     return {
-        "id": "refresh", "capability": capability, "with": {"source": source},
+        "id": "refresh", "tool": tool, "capability": capability,
+        "with": {"source": source},
     }
 
 
@@ -88,7 +87,7 @@ class BrokerTests(unittest.TestCase):
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.external_run_ref, "feedbrain:ingestion_run:73")
         self.assertEqual(result.details["counts"]["items_created"], 2)
-        self.assertEqual(result.details["source"], "ai_articles")
+        self.assertEqual(result.details["source"], {"type": "subscription", "id": 11})
         self.assertEqual(
             [(method, url) for method, url, _ in http.calls],
             [
@@ -110,11 +109,11 @@ class BrokerTests(unittest.TestCase):
         self.assertEqual(result.external_run_ref, notifications[0])
         self.assertEqual(len(http.calls), 2)
 
-    def test_unknown_source_is_rejected_without_http(self):
+    def test_unsupported_source_type_is_rejected_without_http(self):
         adapter, http, _ = make_adapter([])
         with self.assertRaises(ToolExecutionError) as exc:
-            CapabilityBroker([adapter]).dispatch_step(step("unbound"))
-        self.assertEqual(exc.exception.code, "source_unbound")
+            CapabilityBroker([adapter]).dispatch_step(step({"type": "collection", "id": 11}))
+        self.assertEqual(exc.exception.code, "invalid_source")
         self.assertEqual(http.calls, [])
 
     def test_preflight_rejects_unknown_source_before_any_step(self):
@@ -124,14 +123,15 @@ class BrokerTests(unittest.TestCase):
             "name": "Check feeds", "instruction": "Collect data",
             "workflow": {
                 "schema": 1, "steps": [
-                    step(), {"id": "next", "capability": "information.sync",
-                             "with": {"source": "unbound"}},
+                    step(), {"id": "next", "tool": "feedbrain",
+                             "capability": "information.sync",
+                             "with": {"source": {"type": "collection", "id": 11}}},
                 ],
             },
         }
         with self.assertRaises(ToolExecutionError) as error:
             broker.preflight(definition)
-        self.assertEqual(error.exception.code, "source_unbound")
+        self.assertEqual(error.exception.code, "invalid_source")
         self.assertEqual(http.calls, [])
 
     def test_missing_capability_is_rejected_before_http(self):
@@ -142,10 +142,12 @@ class BrokerTests(unittest.TestCase):
 
     def test_instruction_instead_of_tool_is_not_run(self):
         adapter, http, _ = make_adapter([])
-        with self.assertRaises(WorkflowValidationError):
+        with self.assertRaises(ToolExecutionError):
             CapabilityBroker([adapter]).dispatch_step({
-                "id": "bad", "capability": "information.sync", "with": {
-                    "source": "ai_articles", "url": "https://untrusted.invalid",
+                "id": "bad", "tool": "feedbrain", "capability": "information.sync",
+                "with": {
+                    "source": {"type": "subscription", "id": 11},
+                    "url": "https://untrusted.invalid",
                 },
             })
         self.assertEqual(http.calls, [])
@@ -160,7 +162,7 @@ class BrokerTests(unittest.TestCase):
 
     def test_duplicate_capability_binding_is_rejected(self):
         adapter, _, _ = make_adapter([])
-        with self.assertRaisesRegex(ValueError, "Duplicate adapter"):
+        with self.assertRaisesRegex(ValueError, "Duplicate tool adapter"):
             CapabilityBroker([adapter, adapter])
 
     def test_empty_broker_is_allowed(self):
@@ -258,43 +260,68 @@ class BrokerTests(unittest.TestCase):
 
     def test_adapter_direct_validation(self):
         adapter, http, _ = make_adapter([])
-        for params in ({}, {"source": "ai_articles", "url": "http://example.org"}):
+        for params in (
+            {},
+            {"source": {"type": "subscription", "id": 11}, "url": "http://example.org"},
+        ):
             with self.subTest(params=params):
                 with self.assertRaises(ToolExecutionError):
                     adapter.execute("information.sync", params)
         with self.assertRaises(ToolExecutionError):
-            adapter.execute("misc.other", {"source": "ai_articles"})
+            adapter.execute("misc.other", {"source": {"type": "subscription", "id": 11}})
         self.assertEqual(http.calls, [])
 
 
-class ConfigTests(unittest.TestCase):
-    def test_bindings_parse_from_trusted_json(self):
-        self.assertEqual(load_feedbrain_bindings('{"ai_articles": 11}'), {
-            "ai_articles": 11,
-        })
-        self.assertEqual(load_feedbrain_bindings("{}"), {})
+class SourceAndToolSelectionTests(unittest.TestCase):
+    def test_invalid_feedbrain_source_types_and_ids_are_rejected(self):
+        invalid = (
+            {}, "ai_articles", 11, True, [],
+            {"type": "collection", "id": 11},
+            {"type": "subscription", "id": 0},
+            {"type": "subscription", "id": True},
+            {"type": "subscription", "id": "11"},
+            {"type": "subscription", "id": 2_147_483_648},
+            {"type": "subscription", "id": 11, "url": "https://evil.invalid"},
+        )
+        for source in invalid:
+            with self.subTest(source=source):
+                adapter, http, _ = make_adapter([])
+                with self.assertRaises(ToolExecutionError) as exc:
+                    CapabilityBroker([adapter]).dispatch_step(step(source))
+                self.assertEqual(exc.exception.code, "invalid_source")
+                self.assertEqual(http.calls, [])
 
-    def test_invalid_bindings_fail_closed(self):
-        for invalid in ("", "null", "[]", "garbage", '{"RSS url": 3}',
-                        '{"valid": 0}', '{"valid": true}', '{"valid": "12"}'):
-            with self.subTest(invalid=invalid):
-                with self.assertRaises(ValueError):
-                    load_feedbrain_bindings(invalid)
-        with self.assertRaises(ValueError):
-            validate_feedbrain_bindings({"a/b": 12})
-
-    def test_duplicate_source_bindings_are_rejected(self):
-        with self.assertRaisesRegex(ValueError, "Duplicate Feedbrain source alias"):
-            load_feedbrain_bindings('{"ai_articles": 11, "ai_articles": 22}')
-
-    def test_bindings_never_come_from_a_step(self):
+    def test_tool_selection_cannot_be_overridden_by_http_url(self):
         adapter, http, _ = make_adapter([])
-        with self.assertRaises(WorkflowValidationError):
-            CapabilityBroker([adapter]).dispatch_step({
-                "id": "bad", "capability": "information.sync",
-                "with": {"source": "ai_articles", "subscription_id": 555},
-            })
+        with self.assertRaises(ToolExecutionError) as exc:
+            CapabilityBroker([adapter]).dispatch_step(step(tool="other_tool"))
+        self.assertEqual(exc.exception.code, "tool_unavailable")
         self.assertEqual(http.calls, [])
+
+    def test_other_tool_can_support_same_capability(self):
+        class OtherAdapter:
+            name = "other_tool"
+            capabilities = frozenset({"information.sync"})
+
+            def validate_parameters(self, capability, parameters):
+                if parameters.get("source") != {"type": "file", "id": "report.txt"}:
+                    raise ToolExecutionError("invalid_source", "Requires a file")
+
+            def execute(self, capability, parameters, on_external_ref=None):
+                return {
+                    "status": "completed",
+                    "external_run_ref": "other_tool:resource:1",
+                    "source": parameters["source"],
+                }
+
+        adapter, feedbrain_http, _ = make_adapter([])
+        broker = CapabilityBroker([adapter, OtherAdapter()])
+        result = broker.dispatch_step(
+            step(source={"type": "file", "id": "report.txt"}, tool="other_tool"),
+        )
+        self.assertEqual(result.tool, "other_tool")
+        self.assertEqual(result.details["source"], {"type": "file", "id": "report.txt"})
+        self.assertEqual(feedbrain_http.calls, [])
 
     def test_base_url_must_be_trusted_service_root(self):
         for url in ("javascript:console.log(1)", "http://user:pass@api:8000",
@@ -302,7 +329,7 @@ class ConfigTests(unittest.TestCase):
                     "file:///etc/passwd", "http://"):
             with self.subTest(url=url):
                 with self.assertRaises(ValueError):
-                    FeedbrainSyncAdapter(base_url=url, source_bindings={})
+                    FeedbrainSyncAdapter(base_url=url)
 
 
 class LocalHttpAdapterTests(unittest.TestCase):
@@ -332,9 +359,7 @@ class LocalHttpAdapterTests(unittest.TestCase):
         thread.start()
         try:
             base = f"http://127.0.0.1:{server.server_address[1]}"
-            adapter = FeedbrainSyncAdapter(base_url=base, source_bindings={
-                "ai_articles": 11,
-            })
+            adapter = FeedbrainSyncAdapter(base_url=base)
             outcome = CapabilityBroker([adapter]).dispatch_step(step())
             self.assertEqual(outcome.external_run_ref, "feedbrain:ingestion_run:73")
             self.assertEqual(requests_seen, [

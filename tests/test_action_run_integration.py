@@ -31,9 +31,12 @@ workflow:
   schema: 1
   steps:
     - id: collect
+      tool: feedbrain
       capability: information.sync
       with:
-        source: fixture_feed
+        source:
+          type: subscription
+          id: 11
 schedule:
   every_minutes: 60
 """
@@ -45,13 +48,19 @@ workflow:
   schema: 1
   steps:
     - id: collect
+      tool: feedbrain
       capability: information.sync
       with:
-        source: fixture_feed
+        source:
+          type: subscription
+          id: 11
     - id: collect_again
+      tool: feedbrain
       capability: information.sync
       with:
-        source: fixture_feed
+        source:
+          type: subscription
+          id: 11
 """
 
 
@@ -78,9 +87,9 @@ class FakeFeedbrain:
         }
 
 
-def broker_for(fake: FakeFeedbrain, *, bindings=None):
+def broker_for(fake: FakeFeedbrain):
     adapter = FeedbrainSyncAdapter(
-        base_url="http://api:8000", source_bindings=bindings or {"fixture_feed": 11},
+        base_url="http://api:8000",
         transport=fake.request, poll_interval=0.01, max_wait_seconds=10,
     )
     return CapabilityBroker([adapter])
@@ -174,13 +183,13 @@ def test_failed_feedbrain_job_is_saved_without_leaking_private_error(monkeypatch
     assert "simulated private error" not in str(run)
 
 
-def test_preflight_rejects_missing_source_and_instruction_only(monkeypatch):
+def test_preflight_rejects_unsupported_resource_and_instruction_only(monkeypatch):
     client = TestClient(app)
     fake = FakeFeedbrain()
-    # A valid adapter but no bound source, so API must fail before queueing.
-    broker = broker_for(fake, bindings={"other_feed": 11})
+    broker = broker_for(fake)
     monkeypatch.setattr("info_hub.action_run_api.configured_broker", lambda: broker)
-    action_id = create(client)
+    incompatible = V1.replace("type: subscription", "type: collection")
+    action_id = create(client, incompatible)
     response = client.post(f"/actions/{action_id}/runs")
     assert response.status_code == 409
     assert client.get(f"/actions/{action_id}/runs").json() == []

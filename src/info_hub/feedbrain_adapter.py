@@ -8,42 +8,8 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from info_hub.action_broker import ToolExecutionError
-from info_hub.action_workflow import SOURCE_PATTERN
 
 MAX_HTTP_RESPONSE_BYTES = 64 * 1024
-
-
-def validate_feedbrain_bindings(bindings: Mapping[str, int]) -> dict[str, int]:
-    """Logical source aliases map only to explicitly allowed positive subscription IDs."""
-    if not isinstance(bindings, dict):
-        raise ValueError("Feedbrain bindings must be an object")
-    normalized = {}
-    for alias, subscription_id in bindings.items():
-        if not isinstance(alias, str) or not SOURCE_PATTERN.fullmatch(alias):
-            raise ValueError("Invalid logical source alias in Feedbrain bindings")
-        if type(subscription_id) is not int or subscription_id <= 0:
-            raise ValueError(f"Invalid subscription ID for source alias: {alias}")
-        normalized[alias] = subscription_id
-    return normalized
-
-
-def load_feedbrain_bindings(raw: str) -> dict[str, int]:
-    """Parse a trusted JSON environment variable, not data from a user Action."""
-    if not raw or len(raw) > 8192:
-        raise ValueError("Feedbrain bindings must be a nonempty JSON object (max 8192 chars)")
-    def unique_keys(items: list[tuple[str, Any]]) -> dict:
-        result = {}
-        for key, value in items:
-            if key in result:
-                raise ValueError(f"Duplicate Feedbrain source alias: {key}")
-            result[key] = value
-        return result
-
-    try:
-        value = json.loads(raw, object_pairs_hook=unique_keys)
-    except json.JSONDecodeError as exc:
-        raise ValueError("Feedbrain bindings must be valid JSON") from exc
-    return validate_feedbrain_bindings(value)
 
 
 class _NoRedirects(HTTPRedirectHandler):
@@ -102,7 +68,6 @@ class FeedbrainSyncAdapter:
     def __init__(
         self, *,
         base_url: str,
-        source_bindings: Mapping[str, int],
         poll_interval: float = 1.0,
         max_wait_seconds: float = 120.0,
         request_timeout: float = 10.0,
@@ -120,7 +85,6 @@ class FeedbrainSyncAdapter:
         if poll_interval <= 0 or max_wait_seconds <= 0 or request_timeout <= 0:
             raise ValueError("Feedbrain timeouts and polling interval must be positive")
         self.base_url = base_url.rstrip("/")
-        self.source_bindings = validate_feedbrain_bindings(dict(source_bindings))
         self.poll_interval = poll_interval
         self.max_wait_seconds = max_wait_seconds
         self.request_timeout = request_timeout
@@ -139,10 +103,18 @@ class FeedbrainSyncAdapter:
                 "invalid_parameters", "information.sync requires only with.source",
                 tool=self.name,
             )
-        alias = parameters["source"]
-        if not isinstance(alias, str) or alias not in self.source_bindings:
+        source = parameters["source"]
+        if (
+            not isinstance(source, Mapping)
+            or set(source) != {"type", "id"}
+            or source["type"] != "subscription"
+            or type(source["id"]) is not int
+            or not 1 <= source["id"] <= 2_147_483_647
+        ):
             raise ToolExecutionError(
-                "source_unbound", "No Feedbrain subscription is bound to that source",
+                "invalid_source",
+                "Feedbrain information.sync requires source.type=subscription "
+                "and a positive integer source.id",
                 tool=self.name,
             )
 
@@ -151,8 +123,8 @@ class FeedbrainSyncAdapter:
         on_external_ref: Callable[[str], None] | None = None,
     ) -> dict[str, Any]:
         self.validate_parameters(capability, parameters)
-        alias = parameters["source"]
-        subscription_id = self.source_bindings[alias]
+        source = parameters["source"]
+        subscription_id = source["id"]
         deadline = self.monotonic() + self.max_wait_seconds
         status, queued = self.transport(
             "POST", f"{self.base_url}/subscriptions/{subscription_id}/sync",
@@ -217,7 +189,7 @@ class FeedbrainSyncAdapter:
                     "status": "completed",
                     "external_run_ref": external_ref,
                     "subscription_id": subscription_id,
-                    "source": alias,
+                    "source": dict(source),
                     "counts": counts,
                 }
             if run_status == "failed":

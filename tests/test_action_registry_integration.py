@@ -26,9 +26,12 @@ workflow:
   schema: 1
   steps:
     - id: refresh
+      tool: feedbrain
       capability: information.sync
       with:
-        source: ai_articles
+        source:
+          type: subscription
+          id: 11
 schedule:
   every_minutes: 60
 """
@@ -41,9 +44,12 @@ workflow:
   schema: 1
   steps:
     - id: refresh
+      tool: feedbrain
       capability: information.sync
       with:
-        source: ai_articles
+        source:
+          type: subscription
+          id: 11
 """
 
 
@@ -57,7 +63,10 @@ def test_action_registry_version_history_and_immutable_database():
     assert created.json()["current_version_number"] == 1
     first = created.json()["current_version"]
     assert first["definition_yaml"] == FIRST_YAML
-    assert first["definition"]["workflow"]["steps"][0]["with"]["source"] == "ai_articles"
+    assert (
+        first["definition"]["workflow"]["steps"][0]["with"]["source"]
+        == {"type": "subscription", "id": 11}
+    )
     assert first["definition"]["schedule"] == {"every_minutes": 60}
     assert first["schedule_active"] is False
 

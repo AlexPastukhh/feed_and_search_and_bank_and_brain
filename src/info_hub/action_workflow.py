@@ -12,7 +12,7 @@ MAX_INTERVAL_MINUTES = 10_080
 STEP_ID_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
 CAPABILITY_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 PARAMETER_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
-SOURCE_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
+TOOL_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
 
 
 class WorkflowValidationError(ValueError):
@@ -73,7 +73,9 @@ def _json_value(value: Any, location: str, depth: int = 0) -> Any:
 def validate_action_document(document: Any) -> dict[str, Any]:
     """Validate and normalize parsed YAML (or a Python dictionary).
 
-    Storage accepts unknown well-formed capabilities for future adapters.
+    Storage accepts unknown well-formed tools/capabilities for future adapters.
+    Legacy ActionVersion snapshots remain readable but require a new version
+    with an explicit tool before they can be executed.
     Call require_executable_workflow() before dispatching any work.
     """
     root = _mapping(document, "action")
@@ -105,7 +107,8 @@ def validate_action_document(document: Any) -> dict[str, Any]:
             location = f"workflow.steps[{index}]"
             step = _mapping(raw_step, location)
             _keys(
-                step, required={"id", "capability"}, allowed={"id", "capability", "with"},
+                step, required={"id", "tool", "capability"},
+                allowed={"id", "tool", "capability", "with"},
                 location=location,
             )
             step_id = _text(step["id"], f"{location}.id", maximum=64)
@@ -114,26 +117,20 @@ def validate_action_document(document: Any) -> dict[str, Any]:
             if step_id in seen:
                 raise WorkflowValidationError(f"duplicate step id: {step_id}")
             seen.add(step_id)
+            tool = _text(step["tool"], f"{location}.tool", maximum=64)
+            if not TOOL_PATTERN.fullmatch(tool):
+                raise WorkflowValidationError(f"{location}.tool must be a tool identifier")
             capability = _text(step["capability"], f"{location}.capability", maximum=100)
             if not CAPABILITY_PATTERN.fullmatch(capability):
                 raise WorkflowValidationError(f"{location}.capability must be dotted identifier")
 
             params = _mapping(step.get("with", {}), f"{location}.with")
             normalized_params = _json_value(params, f"{location}.with")
-            if capability == "information.sync":
-                _keys(
-                    normalized_params, required={"source"}, allowed={"source"},
-                    location=f"{location}.with",
-                )
-                source = _text(
-                    normalized_params["source"], f"{location}.with.source", maximum=64,
-                )
-                if not SOURCE_PATTERN.fullmatch(source):
-                    raise WorkflowValidationError(
-                        f"{location}.with.source must be a logical source alias"
-                    )
+            # Tool-specific parameter schemas (including source resource types)
+            # belong to adapters; the core only enforces JSON-safe parameters.
             normalized_steps.append({
-                "id": step_id, "capability": capability, "with": normalized_params,
+                "id": step_id, "tool": tool, "capability": capability,
+                "with": normalized_params,
             })
         result["workflow"] = {"schema": 1, "steps": normalized_steps}
 
