@@ -16,15 +16,9 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 - `README.md` is a navigation/overview, `docs/DEVELOPMENT.md` is for operations,
   and RSS/content docs contain feature-specific verification only. Avoid duplicating
   status and roadmap across files.
-- The **Action Registry, Broker, ActionRun/StepRun/Result and separate Action
-  worker are verified on the live PostgreSQL-backed API** via Fortis Repo:
-  Action #1 v3 / ActionRun #1 completed through Feedbrain IngestionRun #6.
-  Action Scheduler V1 is also **verified on deployed Docker/PostgreSQL**:
-  opt-in Action #1 v3 produced scheduled ActionRun #2/#3 through Feedbrain #7/#8,
-  all completed, and its schedule was disabled afterward. All schedules remain
-  opt-in; the YAML declaration must never activate one by itself. Live
-  failure/restart/concurrency tests remain planned.
-  Feedbrain is optional, not the mandatory data path.
+- Only `docs/PROJECT.md` records which milestones are implemented, deployed,
+  verified or still pending. Do not copy live status snapshots into other docs.
+- Feedbrain is optional, not the mandatory data path.
 - External and internal services are black boxes behind accessible
   API/MCP/CLI/tool contracts. Prefer existing capabilities over reinventing them.
   Do not invent tool availability or assume an external app exposes a specific API.
@@ -34,6 +28,10 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
   parameters in `with`; `source` may identify different resource types,
   not exclusively a Feedbrain subscription. Tool endpoints/credentials are
   runtime configuration, not Action parameters. Historic ActionVersions are immutable.
+- Tool APIs own their operation arguments, outputs, result retrieval and internal
+  integrations. Action Core only calls allowed operations and records bounded
+  execution evidence. Do not introduce a generic artifact/output model or
+  cross-step data transport without a concrete Action requiring it.
 - Deterministic collection schedules (Feedbrain) and AI Action schedules differ.
 
 ## Engineering rules
