@@ -143,73 +143,17 @@ Invoke-RestMethod -Uri "$base/actions/$actionId/runs"
 
 4. **Не запускайте Action вручную для этого теста.** Проверяйте `GET /actions/{id}/runs` после каждого интервала. У двух новых Runs должно быть `initiated_by: "schedule"`, разные Run ID, конечный статус и StepRun/ActionResult с реальным `feedbrain:ingestion_run:{id}`.
 5. Если Run всё ещё `queued/running` к следующему интервалу, Scheduler **не создаёт дубликат**, а пишет `last_skip_reason: active_run`; после пропусков/выключенного worker **не воспроизводит весь backlog**. `next_run_at`, `last_enqueued_at` и `last_skipped_at` видны через `GET /actions/{id}/schedule`.
-6. Для безопасной проверки **сохранения включённого расписания после рестарта** используйте отдельный PowerShell-сценарий ниже. Он проверяет, что `next_run_at` не сбросился при перезапуске только `action-worker`, наблюдает новый автоматический Run и **всегда пытается выключить расписание в `finally`**. Запускайте его только при уже выключенном расписании и отсутствии активных Runs, для разрешённого тестового Action.
+6. Для проверки **сохранения расписания после перезапуска** используйте [готовый PowerShell-скрипт](../scripts/verify_action_scheduler_restart.ps1). Он проверяет начальное состояние, включает тестовый интервал в 1 минуту, перезапускает **только** `action-worker`, проверяет неизменность `next_run_at`, ожидает **новый** `ActionRun` с `initiated_by: schedule` и завершением `completed`. В `finally` он выключает расписание. **Не выполняйте сначала блок из пункта 3:** скрипт сам включает расписание и откажется работать, если оно уже активно.
 
 ```powershell
 Set-Location "$HOME\Repos\feed_and_search_and_bank_and_brain"
-$ErrorActionPreference = "Stop"
-$base = "http://127.0.0.1:8000"
-$actionId = 1
-$enabledByTest = $false
-try {
-    $state = Invoke-RestMethod "$base/actions/$actionId/schedule"
-    if ($state.enabled) { throw "Schedule already enabled; refusing to modify it" }
-    $before = @(Invoke-RestMethod "$base/actions/$actionId/runs")
-    if (@($before | Where-Object { $_.status -in @("queued", "running") }).Count) {
-        throw "Action has an active Run"
-    }
-    $idsBefore = @($before | ForEach-Object { $_.id })
-    $body = @{ enabled = $true; every_minutes = 1 } | ConvertTo-Json
-    $enabledByTest = $true  # Ensure cleanup even if PUT succeeds but response fails.
-    $started = Invoke-RestMethod -Method Put "$base/actions/$actionId/schedule" `
-        -ContentType "application/json" -Body $body
-    Write-Host "Enabled: next_run_at=$($started.next_run_at)"
-
-    docker compose restart action-worker
-    if ($LASTEXITCODE -ne 0) { throw "Worker restart failed" }
-    $afterRestart = Invoke-RestMethod "$base/actions/$actionId/schedule"
-    if (-not $afterRestart.enabled -or
-        $afterRestart.next_run_at -ne $started.next_run_at) {
-        throw "Schedule state changed after restart"
-    }
-    Write-Host "Schedule persisted across worker restart"
-
-    $deadline = (Get-Date).AddMinutes(3)
-    $found = $null
-    do {
-        Start-Sleep -Seconds 3
-        $runs = @(Invoke-RestMethod "$base/actions/$actionId/runs")
-        $found = @($runs | Where-Object {
-            $_.initiated_by -eq "schedule" -and
-            $idsBefore -notcontains $_.id
-        } | Select-Object -First 1)
-        if ($found.Count) {
-            $detail = Invoke-RestMethod "$base/action-runs/$($found[0].id)"
-            if ($detail.status -notin @("queued", "running")) {
-                Write-Host "Scheduled Run=$($detail.id), status=$($detail.status)"
-                $detail.steps | Select-Object step_id, status, external_run_ref |
-                    Format-Table
-                if ($detail.status -ne "completed") {
-                    throw "Scheduled Run finished with status $($detail.status)"
-                }
-                break
-            }
-        }
-    } while ((Get-Date) -lt $deadline)
-    if (-not $found.Count -or $detail.status -ne "completed") {
-        throw "Scheduled Run did not complete within the test window"
-    }
-}
-finally {
-    if ($enabledByTest) {
-        $off = @{ enabled = $false } | ConvertTo-Json
-        Invoke-RestMethod -Method Put "$base/actions/$actionId/schedule" `
-            -ContentType "application/json" -Body $off | Out-Host
-    }
-}
+git pull --ff-only origin main
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_action_scheduler_restart.ps1
 ```
 
-Если после запуска возникла ошибка соединения **при попытке отключения**, при восстановлении API отдельно убедитесь, что `GET /actions/{id}/schedule` показывает `enabled: false`; иначе выключите вручную. Это повторяет реальный вызов Feedbrain по тестовой подписке.
+Параметр `-ActionId 1` можно передать при необходимости; по умолчанию используется Action #1, который обращается к реальному Feedbrain. **Скрипт выполняет настоящую синхронизацию источника.** Его нужно запускать только после проверки, что API доступен и Action не выполняется. При неудаче отключения расписания скрипт выдаст предупреждение: после восстановления API убедитесь через `GET /actions/{id}/schedule`, что `enabled: false`; при необходимости отключите расписание вручную.
+
+Предыдущий пример с `@(Invoke-RestMethod .../runs)` был некорректен для Windows PowerShell: HTTP JSON-массив мог рассматриваться как **один вложенный элемент** и создавать составной ID вида `"8 5 4 3 2 1"`. В исправленном сценарии каждую запись перебирает `foreach`, а перед вызовом `GET /action-runs/{id}` ID преобразуется к целому числу.
 
 При выключении **новые** Runs не создаются, но уже запущенный Run не прерывается. `PUT` с `{"enabled":true}` без `every_minutes` использует ранее сохранённый интервал либо `schedule.every_minutes` из текущей версии YAML. Все поля расписания живут **отдельно от неизменяемых ActionVersion**. Новый Scheduled Run использует **текущую** версию Action на момент постановки в очередь.
 
