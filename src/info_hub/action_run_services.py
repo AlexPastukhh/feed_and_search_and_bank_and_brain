@@ -27,23 +27,22 @@ class RunNotFound(LookupError):
     """An Action or requested immutable version does not exist."""
 
 
-def queue_action_run(
-    session: Session, *, action_id: int, broker: CapabilityBroker,
+def make_queued_action_run(
+    session: Session, *, action: Action, broker: CapabilityBroker,
     version_number: int | None = None, initiated_by: str = "api",
 ) -> ActionRun:
-    """Atomically pin a version and prevent parallel executions of one Action."""
-    action = session.scalar(select(Action).where(Action.id == action_id).with_for_update())
-    if action is None:
-        raise RunNotFound("Action not found")
+    """Caller holds a row lock on Action; transaction is committed by caller.
+
+    Shared by manual API and scheduler to enforce one active run per Action.
+    """
     number = action.current_version_number if version_number is None else version_number
-    version = get_action_version(session, action_id=action_id, version_number=number)
+    version = get_action_version(session, action_id=action.id, version_number=number)
     if version is None:
         raise RunNotFound("Action version not found")
-    # Validate all capability bindings before creating any queued job or side effects.
     broker.preflight(version.definition)
     active = session.scalar(
         select(ActionRun.id).where(
-            ActionRun.action_id == action_id,
+            ActionRun.action_id == action.id,
             ActionRun.status.in_(("queued", "running")),
         ).limit(1)
     )
@@ -54,6 +53,21 @@ def queue_action_run(
         initiated_by=initiated_by, status="queued",
     )
     session.add(run)
+    return run
+
+
+def queue_action_run(
+    session: Session, *, action_id: int, broker: CapabilityBroker,
+    version_number: int | None = None, initiated_by: str = "api",
+) -> ActionRun:
+    """Atomically pin a version and prevent parallel executions of one Action."""
+    action = session.scalar(select(Action).where(Action.id == action_id).with_for_update())
+    if action is None:
+        raise RunNotFound("Action not found")
+    run = make_queued_action_run(
+        session, action=action, broker=broker,
+        version_number=version_number, initiated_by=initiated_by,
+    )
     session.commit()
     session.refresh(run)
     return run
