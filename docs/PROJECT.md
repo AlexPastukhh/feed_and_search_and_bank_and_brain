@@ -18,7 +18,7 @@
 
 ## Current State — что есть прямо сейчас
 
-**Коротко:** Feedbrain уже можно запустить и использовать как RSS-архив с поиском. **Ручной Action V1 end-to-end проверен на Windows Docker/PostgreSQL через Fortis Repo:** Action #1 v3 → ActionRun #1 → отдельный Action worker → Feedbrain IngestionRun #6 → StepRun и ActionResult со статусом completed. Action Scheduler **написан в коде**, но на развёрнутой Windows PostgreSQL ещё не проверен; все расписания по умолчанию выключены. Внешний AI может читать, менять версии и запускать Actions через HTTP.
+**Коротко:** Feedbrain уже можно запустить и использовать как RSS-архив с поиском. **Ручной Action V1 end-to-end проверен на Windows Docker/PostgreSQL через Fortis Repo:** Action #1 v3 → ActionRun #1 → отдельный Action worker → Feedbrain IngestionRun #6 → StepRun и ActionResult со статусом completed. **Action Scheduler проверен на Windows Docker/PostgreSQL:** явно включено расписание Action #1 v3, автоматически созданы ActionRun #2 и #3 с `initiated_by: schedule`, оба завершились успешно через Feedbrain IngestionRun #7 и #8; расписание после проверки **выключено**. Конкуренция и рестарт worker не проверены в живой среде. Внешний AI может читать, менять версии и запускать Actions через HTTP.
 
 | Компонент | Текущее состояние | Проверка/ограничение |
 |---|---|---|
@@ -30,14 +30,14 @@
 | External AI access | HTTP API Feedbrain и Action Registry доступны через Fortis Repo | На проверенной сети `host.docker.internal:8000`; не универсальная гарантия |
 | Action Core | **Registry, ActionRun, StepRun, ActionResult проверены на работающей БД** | Action #1 v3 опубликован; Run #1 / StepRun #1 и Result completed сохранены, v1/v2 читаются; SQL-триггер и восстановление worker отдельно не проверяли |
 | Tools/Execution | **Broker → Feedbrain успешно проверен в реальной работе** | Feedbrain IngestionRun #6 completed, subscription #1, счётчики 0/0/0; внешняя ссылка записана в StepRun |
-| Schedules | **ActionSchedule/API/scheduler добавлены в код**, RSS polling реализован отдельно | Миграция `0006`, интервал 1–10080 минут, opt-in и защита от дублей; **реальные scheduled Runs на Docker ещё не наблюдались** |
+| Schedules | **Action Scheduler проверен end-to-end на Docker**, RSS polling отдельный | Action #1 v3: Run #2 → Feedbrain #7 и Run #3 → Feedbrain #8, оба `completed`; интервал 1 мин, `enabled: false` после теста. Restart и конкуренция не проверены |
 | Representations | Поиск по chunks есть; универсальный менеджер представлений **не реализован** | Внешние таблицы, графы, Goal Map могут работать напрямую |
 | Security | API Feedbrain **и новые Action endpoints** без аутентификации | Local-only прототип; нет READ/ADMIN и scoped token |
 | CI и надёжность | Есть шаблон CI; активного workflow и проверенного backup/restore нет | Интеграционный набор требует одноразовой PostgreSQL БД |
 
 **Данные и точность:** RSS-хранилище сохраняет исходный XML item, не полный сырой HTML; статус `full` означает извлечённый доступный основной текст, не обход paywall. FTS ищет по fragments, поэтому несколько hits одной статьи — ожидаемое поведение; семантического поиска нет. Фоновая массовая веб-экстракция, расширенный импорт PDF/CSV/JSON, generic API connectors и встроенная LLM не реализованы.
 
-**Следующий шаг:** обновить Windows Docker до миграции `0006`, убедиться, что расписание Action #1 отключено, затем **явно** включить расписание на тестовой подписке и наблюдать минимум два автоматических Run с историей (и один после рестарта). Отдельно проверить внешние ошибки/тайм-аут и восстановление worker. Ручной путь уже проверен.
+**Следующий шаг:** проверить сохранение расписания и автоматический запуск **после рестарта `action-worker`**, отсутствие дублей при конкурентных попытках запуска, внешнюю ошибку/тайм-аут и восстановление прерванного Run; SQL/API интеграционные тесты — на одноразовой PostgreSQL. Ручной и два плановых успешных запуска уже подтверждены.
 
 ---
 
@@ -63,6 +63,7 @@
 | 2026-11-04 | **Контракт V1 уточнён после пробного запуска:** инструмент и типизированный ресурс теперь указываются непосредственно в Action (`tool: feedbrain`, `with.source: {type: subscription, id: N}`). Убраны обязательные привязки алиасов в `.env`; разные инструменты могут использовать собственные типы `source`. Старые v1/v2 не переписываются. | `9306d3e`; 26 тестов Workflow, 26 Broker (включая второй тестовый инструмент с `source.type: file`), 17 прежних; пример YAML и Compose проверены. **Новый контракт ещё не развернут и не проверен в Windows Docker**. |
 | 2026-11-04 | **Первое реальное выполнение Action end-to-end:** опубликована v3 Action #1 с `tool: feedbrain` и `source: {type: subscription, id: 1}`; ActionRun #1, StepRun #1 и ActionResult завершились `completed`. Старые v1/v2 сохранились, попытка запустить v2 дала `409`. | Fortis Repo: health/ready `200`, publish v3 `201`, launch `202`, `GET /action-runs/1` `completed`; независимо проверен Feedbrain `GET /runs/6` `completed`, 0/0/0 публикаций, error null. История содержит ровно один Run; **Scheduler/failed/restart пока не проверены**. |
 | 2026-11-04 | Написан **opt-in Action Scheduler V1**: `ActionSchedule` и миграция `0006`, `GET/PUT /actions/{id}/schedule`, тайминг в UTC, постановка `ActionRun(initiated_by=schedule)` через общий Broker, защита от конкурентных дублей, пропуск пропущенных интервалов и наблюдаемые причины отказа. YAML сам расписание не включает. | `abdf62b`; 10 новых unit-тестов расчёта интервалов + прежние 69 тестов прошли; SQL/API интеграционные тесты подготовлены **для отдельной PostgreSQL**, пока не запускались. На Windows Docker расписание ещё **не проверено**. |
+| 2026-11-04 | **Action Scheduler V1 подтверждён на реальном Windows Docker/PostgreSQL:** через Fortis Repo активировали Action #1 v3 на 1 минуту, без ручного запуска созданы два запланированных ActionRun #2 (06:59:46 UTC) и #3 (07:00:46 UTC), оба `completed`. Feedbrain IngestionRun #7/#8 и StepRun #2/#3 тоже `completed`; RSS-счётчики 0/0/0, ошибок нет. После двух запусков расписание выключено. | `GET/PUT /actions/1/schedule`, `GET /action-runs/2`, `/action-runs/3` и Feedbrain `GET /runs/7`, `/runs/8`; `GET /actions/1/runs` содержит Runs #1/#2/#3, `schedule_active=false`, `enabled=false`, `next_run_at=null`. **Рестарт, гонки, внешний failure/timeout ещё не проверяли.** |
 
 **Новая запись должна отвечать:** *что сделано/изменено*, *почему*, *чем проверено*, *что осталось неготовым*. Наличие коммита не доказывает прохождение интеграционного теста.
 
@@ -88,8 +89,8 @@
 - [x] **Registry/API:** модели/миграция/HTTP API и версии; **через Fortis Repo на работающей PostgreSQL** созданы v1 и v2 Action #1, прочитаны исходные YAML обеих версий, проверены история, `409` при устаревшей редакции и `422` при лишнем параметре. Отдельный тест запрета прямого SQL UPDATE/DELETE **ещё не проведён**.
 - [x] **Broker/adapter — успешная интеграция подтверждена:** ActionRun #1 / StepRun #1 → Feedbrain IngestionRun #6 completed, внешняя ссылка и счётчики совпадают. Ошибки/тайм-ауты проверены локально, не на реальном Feedbrain.
 - [ ] **Execution/history — успешный путь проверен, негативные сценарии остаются:** PostgreSQL, Action worker, Run #1, StepRun #1, ActionResult completed. v1/v2 сохранены, попытка Run для v2 вернула 409 без нового запуска. Живые failed/timeout/restart не проверялись.
-- [ ] **Action schedule — код написан, проверка на Docker остаётся:** миграция `0006`, `GET/PUT /actions/{id}/schedule`, отдельное изменяемое расписание, opt-in `enabled: true`, интервалы 1–10080 минут, запуск текущей версии и пропуск дублирующихся/неисполняемых Runs. Проверены 10 unit-тестов календарного расчёта; SQL/API тесты подготовлены для одноразовой базы. Реальные scheduled Runs и рестарт пока не проверены.
-- [ ] **Проверка на Windows Docker:** ручной Run и негативный сценарий v2 → 409 подтверждены через Fortis Repo; ожидают **не менее двух scheduled Runs**, успешное возобновление после рестарта, внешний failure/timeout, disposable-DB тесты.
+- [x] **Action schedule — основной end-to-end сценарий проверен:** миграция `0006`, `GET/PUT /actions/{id}/schedule`, opt-in, автоматический запуск текущей версии v3 с интервалом 1 минуту: ActionRun #2 и #3 (`initiated_by: schedule`) → Feedbrain IngestionRun #7 и #8 → StepRun/Result `completed`. Расписание отключено после проверки. Конкурентные конфликты и рестарт остаются отдельными тестами надёжности.
+- [ ] **Проверка на Windows Docker:** ручной Run, отказ устаревшей v2 → `409`, **два scheduled Run `completed` и отключение расписания** подтверждены через Fortis Repo; ожидают сценарий после рестарта, внешний failure/timeout, проверка конкуренции и disposable-DB тесты.
 
 **Definition of Done:** реальный Action вызывает Feedbrain через Broker, показывает завершённый Feedbrain IngestionRun, историю и результат, выполняется без запроса к AI по расписанию; изменённая версия не переписывает историю. **Не входит:** AI/локальные модели как workflow-операции, универсальный реестр всех инструментов, сложный DSL, графы и UI.
 
@@ -150,4 +151,4 @@
 
 ## Следующее конкретное действие
 
-**Далее — реальная проверка Action Scheduler:** код и миграция `0006` готовы, но Windows Docker не обновлён. После обновления проверить явное включение, два scheduled Runs и сохранение расписания после рестарта. **Phase 1 ещё не завершена.**
+**Далее — надёжность и завершение Phase 1:** два запланированных запуска **уже подтверждены** на Windows Docker. Проверить сохранение и выполнение после рестарта `action-worker`, конфликт параллельных запусков, реальный внешний failure/timeout и интеграционные тесты на изолированной PostgreSQL. До этих проверок **Phase 1 целиком не закрыта**.

@@ -19,10 +19,11 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 - The **Action Registry, Broker, ActionRun/StepRun/Result and separate Action
   worker are verified on the live PostgreSQL-backed API** via Fortis Repo:
   Action #1 v3 / ActionRun #1 completed through Feedbrain IngestionRun #6.
-  Action Scheduler V1 (separate mutable schedule, API, polling in Action worker)
-  is implemented but **not yet verified on deployed Docker/PostgreSQL**. All
-  schedules are opt-in; the YAML declaration must never activate one by itself.
-  Live failure/restart tests remain planned.
+  Action Scheduler V1 is also **verified on deployed Docker/PostgreSQL**:
+  opt-in Action #1 v3 produced scheduled ActionRun #2/#3 through Feedbrain #7/#8,
+  all completed, and its schedule was disabled afterward. All schedules remain
+  opt-in; the YAML declaration must never activate one by itself. Live
+  failure/restart/concurrency tests remain planned.
   Feedbrain is optional, not the mandatory data path.
 - External and internal services are black boxes behind accessible
   API/MCP/CLI/tool contracts. Prefer existing capabilities over reinventing them.

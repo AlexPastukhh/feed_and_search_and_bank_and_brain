@@ -1,6 +1,6 @@
 # Action Core — первая рабочая версия
 
-> **Статус:** реализация V1 продолжается (2026-11-04). **Формат YAML, Registry/API и ручной ActionRun → Broker → настоящий Feedbrain → StepRun/ActionResult проверены на Windows Docker/PostgreSQL через Fortis Repo. код Action Scheduler, API и миграция `0006` добавлены; **запуск по расписанию на настоящем PostgreSQL/Docker ещё не проверен**. Внешние failed/timeout и restart также требуют проверки.** Прогресс и история — в [PROJECT.md](PROJECT.md); общие принципы — в [ARCHITECTURE.md](ARCHITECTURE.md); сетевые ограничения — в [SECURITY.md](SECURITY.md).
+> **Статус:** реализация V1 продолжается (2026-11-04). **Формат YAML, Registry/API и ручной ActionRun → Broker → настоящий Feedbrain → StepRun/ActionResult проверены на Windows Docker/PostgreSQL через Fortis Repo. Action Scheduler, API и миграция `0006` **проверены на Windows Docker**: два автоматических ActionRun #2/#3 завершились через Feedbrain #7/#8, расписание после теста отключено. Внешние failed/timeout, конкурентные запуски и restart требуют отдельной проверки.** Прогресс и история — в [PROJECT.md](PROJECT.md); общие принципы — в [ARCHITECTURE.md](ARCHITECTURE.md); сетевые ограничения — в [SECURITY.md](SECURITY.md).
 >
 > **Цель V1:** создать Action с понятной инструкцией и простым Workflow → выполнить его через Broker и **реальный Feedbrain API** → увидеть результат/историю → настроить и проверить автоматический повторный запуск. AI должен иметь возможность **читать и запускать** Actions через доступный ему Fortis Repo, но вызов модели внутри Workflow для V1 не требуется.
 
@@ -66,7 +66,7 @@ schedule:
 - `parse_action_yaml` использует PyYAML SafeLoader, запрещает YAML aliases, дублирование ключей, несколько документов и небезопасные YAML-типы. Максимальный документ — 64 000 символов.
 - `validate_action_document` проверяет обязательные `name` и `instruction`, необязательные `workflow`/`schedule`, `workflow.schema: 1`, уникальные идентификаторы шагов, корректность параметров и ограничение в 24 шага.
 - Общий YAML-валидатор **не знает** названий ресурсных типов Feedbrain. Для `feedbrain + information.sync` адаптер требует `with.source.type: subscription` и положительный целый `with.source.id`. Другие инструменты могут иметь иные параметры. Неизвестные инструменты/capabilities можно сохранить в Action, но нельзя исполнить без подходящего адаптера. Action без Workflow тоже нельзя запустить программным worker.
-- Для расписания в V1 валиден только целочисленный `every_minutes` от 1 до 10 080 (одна минута — неделя). **Scheduler реализован в коде**, но ещё не проверен на обновлённом Windows Docker.
+- Для расписания в V1 валиден только целочисленный `every_minutes` от 1 до 10 080 (одна минута — неделя). **Scheduler проверен на Windows Docker** двумя автоматическими выполнениями Action #1 v3; после теста расписание выключено.
 - Пример для будущих запусков: [examples/actions/rss_sync.yaml](../examples/actions/rss_sync.yaml). Проверить локально после установки зависимостей: `python -m info_hub.action_workflow examples/actions/rss_sync.yaml`. Команда **только валидирует и выводит нормализованное описание**, ничего не запускает.
 
 **Почему не готовый workflow DSL целиком:** [Docker Compose](https://docs.docker.com/reference/compose-file/) описывает контейнерные сервисы; [GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) привязан к jobs/runners, а [CNCF Serverless Workflow](https://www.cncf.io/projects/serverless-workflow/) включает гораздо больше средств, чем требуется первому сценарию. Можно позднее перейти на готовый стандарт или использовать готовый движок, если реальная сложность оправдает миграцию. В V1 используем **обычный YAML parser + маленькую проверяемую схему**, а не собственный парсер языка.
@@ -132,7 +132,7 @@ schedule:
 - При каждом срабатывании Scheduler фиксирует **текущую ActionVersion** в новом `ActionRun` с `initiated_by: "schedule"`. Если версия изменена, следующий Run использует новую; уже созданные Runs никогда не меняют свою версию. Изменение YAML `schedule` само по себе не меняет уже активный интервал: им управляет отдельный API.
 - Для каждого Action одновременно допускается только один Run в `queued/running`. Scheduler и ручной API синхронизируются блокировкой строки Action; при конфликте Scheduler **пропускает интервал**, пишет `last_skip_reason: active_run`, не создаёт второй Run. Неисполняемый Workflow также пропускается с причиной. При длительном выключении worker пропущенные интервалы **не воспроизводятся пачкой**: один запуск, затем ближайший будущий интервал. Следующее время и запись Run сохраняются в **одной PostgreSQL-транзакции**.
 - При включении API проверяет совместимость Workflow с текущими адаптерами (`409` при неисполняемом Action, `422` при неверном интервале). Запущенные автоматически Actions имеют те же результаты, историю, лимиты и правила восстановления, что и ручные.
-- Реализация: `src/info_hub/action_schedule_services.py`, `action_schedule_api.py`, `action_schedule_time.py`; тесты расчёта интервалов проходят без БД. SQL/API интеграционные тесты подготовлены, **на настоящей PostgreSQL не выполнялись**. До обновления Docker состояние `schedule_active` на работающем API ещё отражает старую версию кода.
+- Реализация: `src/info_hub/action_schedule_services.py`, `action_schedule_api.py`, `action_schedule_time.py`; тесты расчёта интервалов проходят без БД. **Реальный автоматический запуск через PostgreSQL/Feedbrain подтверждён** двумя последовательными Run #2/#3 (Feedbrain #7/#8, completed), затем `enabled=false` и `schedule_active=false`. Отдельные disposable-DB SQL/API интеграционные тесты и проверки рестарта ещё не выполнялись.
 
 ### API для человека и внешнего AI
 
@@ -157,7 +157,7 @@ schedule:
 | `GET` | `/actions/{id}/runs` | История запусков с состояниями и точными номерами версий. |
 | `GET` | `/action-runs/{run_id}` | Подробный Run, шаги, ссылка на Feedbrain IngestionRun, результат и ошибки. |
 
-**Добавлены в код (пока без Docker-проверки):** `GET /actions/{id}/schedule` и `PUT /actions/{id}/schedule`. Состояние по умолчанию — `enabled: false`. Внешний AI через Fortis Repo уже инициировал и прочитал ручной Run #1; запуск по расписанию ещё предстоит проверить после обновления Docker. Полноценный собственный MCP-сервер не требуется.
+**Работают на Windows Docker:** `GET /actions/{id}/schedule` и `PUT /actions/{id}/schedule`. Состояние по умолчанию — `enabled: false`. Внешний AI через Fortis Repo инициировал ручной Run #1 и успешно проверил два автоматических Runs #2/#3. Полноценный собственный MCP-сервер не требуется.
 
 **Безопасность:** сейчас Feedbrain API вообще не требует токенов. До предоставления новых mutating endpoints недоверенным клиентам нужна хотя бы локальная защищённая модель доступов, а в проекте — отделение чтения от создания/запуска/изменения Actions. В раннем тесте использовать только доверенную локальную сеть и явный набор разрешённых subscriptions; не давать Broker выполнять произвольные HTTP-команды из Workflow. Детали см. [SECURITY.md](SECURITY.md).
 
@@ -207,7 +207,7 @@ GET: посмотреть историю Action
 2. **Action Registry:** модели, миграция, версии и HTTP API **проверены через Fortis Repo** на работающей PostgreSQL (Action #1 v1→v2, сохранность YAML, ошибки `409`/`422`). Отдельная проверка прямого SQL-триггера и disposable-DB тесты остаются для последующей проверки.
 3. **Broker + Feedbrain adapter:** успешный реальный вызов через ActionRun #1 / Feedbrain IngestionRun #6 подтверждён, результат и счётчики сохранены; failures/timeouts покрыты локальными тестами.
 4. **ActionRun и история:** новая PostgreSQL-миграция, Action worker, API и успешная история Run #1 / StepRun #1 / ActionResult **проверены**; проверить отдельно реальные ошибки, восстановление после рестарта и автоматические Runs.
-5. **Расписание:** модели/миграция `0006`, API включения/отключения, опрос в Action worker и защита от дублирующихся запусков **написаны**. Дождаться проверки двух реальных scheduled Runs на Docker и поведения после рестарта.
+5. **Расписание:** модели/миграция `0006`, API и Action worker **проверены в успешном end-to-end** (ActionRun #2/#3, Feedbrain #7/#8). Остаются проверки поведения после рестарта и конкурентных запусков.
 6. **End-to-end тест:** ручной и плановый запуск, история, v1/v2, доступ через Fortis Repo, негативные сценарии.
 
 ### Definition of Done V1
