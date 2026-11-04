@@ -7,6 +7,8 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 - Canonical vision, vocabulary and boundaries: `docs/ARCHITECTURE.md`.
 - Living project tracker (Current State / History / Plan): `docs/PROJECT.md`;
   security: `docs/SECURITY.md`.
+- Detailed planned Action Core design: `docs/ACTION-CORE.md` (not implemented).
+  Keep detailed design here, status and checkboxes only in `docs/PROJECT.md`.
 - After verified work, update `docs/PROJECT.md`: check off only validated tasks,
   refresh current state, and append a dated history entry with commit/evidence.
   When plans change, record why; never erase past milestones or claim
