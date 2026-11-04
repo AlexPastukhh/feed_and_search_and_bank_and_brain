@@ -161,6 +161,23 @@ def test_version_pinned_manual_run_and_history(monkeypatch):
     assert client.get(f"/actions/{action_id}/versions/1").json()["definition_yaml"] == V1
 
 
+def test_action_without_schedule_still_executes(monkeypatch):
+    client = TestClient(app)
+    fake = FakeFeedbrain()
+    broker = broker_for(fake)
+    monkeypatch.setattr("info_hub.action_run_api.configured_broker", lambda: broker)
+    unscheduled = V1.replace("schedule:\n  every_minutes: 60\n", "")
+    action_id = create(client, unscheduled)
+    response = client.post(f"/actions/{action_id}/runs")
+    assert response.status_code == 202, response.text
+    run_id = response.json()["id"]
+    assert claim_next_action_run() == run_id
+    process_action_run(run_id, broker)
+    result = client.get(f"/action-runs/{run_id}").json()
+    assert result["status"] == "completed"
+    assert result["steps"][0]["status"] == "completed"
+
+
 def test_failed_feedbrain_job_is_saved_without_leaking_private_error(monkeypatch):
     client = TestClient(app)
     fake = FakeFeedbrain(fail=True)

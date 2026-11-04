@@ -173,6 +173,28 @@ class ActionDocumentTests(unittest.TestCase):
         result = require_executable_workflow(sample_action(), {"information.sync"})
         self.assertEqual(result["workflow"]["steps"][0]["id"], "refresh")
 
+    def test_normalized_action_without_schedule_is_executable(self):
+        action = sample_action()
+        del action["schedule"]
+        normalized = validate_action_document(action)
+        self.assertIsNone(normalized["schedule"])
+        executable = require_executable_workflow(normalized, {"information.sync"})
+        self.assertIsNone(executable["schedule"])
+        self.assertEqual(executable["workflow"]["steps"][0]["id"], "refresh")
+
+    def test_explicit_null_schedule_in_yaml_is_still_rejected(self):
+        action = sample_action()
+        action["schedule"] = None
+        with self.assertRaisesRegex(WorkflowValidationError, "schedule must be an object"):
+            validate_action_document(action)
+
+    def test_normalized_instruction_only_reports_no_workflow(self):
+        normalized = validate_action_document({
+            "name": "Research", "instruction": "Investigate on demand",
+        })
+        with self.assertRaisesRegex(WorkflowValidationError, "no executable workflow"):
+            require_executable_workflow(normalized, {"information.sync"})
+
     def test_cannot_execute_unbound_capability(self):
         with self.assertRaisesRegex(WorkflowValidationError, "information.sync"):
             require_executable_workflow(sample_action(), set())

@@ -119,6 +119,19 @@ class BrokerTests(unittest.TestCase):
         self.assertEqual(exc.exception.code, "invalid_source")
         self.assertEqual(http.calls, [])
 
+    def test_preflight_accepts_saved_workflow_without_schedule(self):
+        adapter, http, _ = make_adapter([])
+        broker = CapabilityBroker([adapter])
+        normalized = {
+            "name": "On-demand sync", "instruction": "Sync when requested",
+            "workflow": {"schema": 1, "steps": [step()]},
+            "schedule": None,
+        }
+        steps = broker.preflight(normalized)
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["tool"], "feedbrain")
+        self.assertEqual(http.calls, [])
+
     def test_preflight_rejects_unknown_source_before_any_step(self):
         adapter, http, _ = make_adapter([])
         broker = CapabilityBroker([adapter])

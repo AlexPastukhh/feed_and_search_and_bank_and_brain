@@ -153,6 +153,14 @@ def require_executable_workflow(
     document: Any, available_capabilities: Collection[str],
 ) -> dict[str, Any]:
     """Reject instruction-only or unbound workflows before a worker creates side effects."""
+    # Registry stores normalized definitions with optional fields set to None.
+    # Revalidating such a snapshot must not interpret the absent schedule
+    # as a user-supplied null schedule (YAML validation still rejects it).
+    if isinstance(document, dict):
+        document = {
+            key: value for key, value in document.items()
+            if not (key in ("workflow", "schedule") and value is None)
+        }
     normalized = validate_action_document(document)
     workflow = normalized["workflow"]
     if workflow is None:
