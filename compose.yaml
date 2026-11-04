@@ -3,6 +3,8 @@ name: feedbrain
 x-app-env: &app-env
   DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-feedbrain}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-feedbrain}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  ACTION_FEEDBRAIN_URL: ${ACTION_FEEDBRAIN_URL:-http://api:8000}
+  ACTION_FEEDBRAIN_SOURCES_JSON: ${ACTION_FEEDBRAIN_SOURCES_JSON:-}
 
 x-app-image: &app-image
   build: .
