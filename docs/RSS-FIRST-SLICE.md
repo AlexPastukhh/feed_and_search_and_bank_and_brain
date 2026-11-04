@@ -12,41 +12,25 @@
 - API показывает Source, Subscription, Run и Resource.
 - ETag/If-Modified-Since и HTTP 304 поддерживаются.
 
-## Что пока не работает
+## Границы этого среза
 
-- Получение полного текста с оригинальной веб-страницы.
-- UI для ленты.
-- Full-text search, AI и исследования.
-- Другие connectors (GitHub, Steam, вакансии, файлы).
-- Универсальная нормализация всех типов ресурсов.
+Этот документ проверяет **RSS-ингестию**. Извлечение публичного HTML и
+полнотекстовый поиск реализованы позднее и описаны отдельно в
+[CONTENT-SEARCH.md](CONTENT-SEARCH.md). Остальные запланированные возможности
+см. в [STATUS.md](STATUS.md).
 
 Каждый материал из RSS получает статус `partial`, если feed вернул текст,
 или `metadata_only`, если есть только metadata. Это сознательное
 ограничение: RSS-анонс нельзя считать полным текстом статьи.
 
-## Security note
+## Ограничения доступа и запуск
 
-Пользовательские RSS URL ограничены HTTP/HTTPS, стандартными портами и
-публичными IP-адресами. Worker проверяет DNS для каждого redirect, не
-использует системные proxy settings и ограничивает размер ответа.
-DNS rebinding между проверкой и самим сетевым соединением полностью не
-исключается; не предоставлять API недоверенным пользователям и не
-публиковать его напрямую в интернет до полноценного network isolation.
+Feedbrain ограничивает протоколы и адреса RSS, но URL validation не устраняет
+все SSRF-риски, включая DNS rebinding. API **не имеет авторизации**.
+Сетевая модель и ограничения: [SECURITY.md](SECURITY.md).
 
-## Windows / Docker Desktop: запуск
-
-Из Windows checkout:
-
-```powershell
-git status --short --branch
-git pull --ff-only origin main
-docker compose up --build -d
-docker compose ps -a
-curl.exe http://127.0.0.1:8000/health/ready
-```
-
-Миграция `20261104_0002` создаст таблицы Source, Subscription,
-IngestionRun, Resource, ResourceVersion и SubscriptionResource.
+Команды запуска/обновления Docker и проверки health находятся в
+[DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Windows / Docker Desktop: первый RSS
 
@@ -89,9 +73,8 @@ $items | Select-Object id,title,content_status,canonical_url | Format-Table -Aut
 При неизменившихся публикациях `items_created` и `items_updated`
 должны быть равны нулю. Для HTTP 304 `items_seen` будет нулём.
 
-## Возврат к предыдущей версии
+## Миграции и данные
 
-Миграция выполняется автоматически и **не стирает старые данные**.
-Для отката схемы потребуется отдельная осознанная операция:
-`alembic downgrade 20261104_0001` удаляет новые таблицы и их данные.
-Не выполнять downgrade без необходимости и backup.
+При запуске выполняется `alembic upgrade head`; используйте последнюю
+миграцию, а не историческую версию только из этого RSS-среза.
+Downgrade может удалить таблицы и записи. Не выполняйте его без backup.

@@ -1,75 +1,79 @@
-# Development workflow
+# Разработка и эксплуатация Feedbrain
 
-## Docker source checkout
-`/workspace/repos/feed_and_search_and_bank_and_brain`
+> Что реализовано — [STATUS.md](STATUS.md). Зачем это нужно и как связано с Actions — [ARCHITECTURE.md](ARCHITECTURE.md). Ограничения доступа — [SECURITY.md](SECURITY.md).
 
-The alias `/workspace/repo/Repos/feed_and_search_and_bank_and_brain`
-currently refers to the same persistent Docker files.
+## Рабочие копии и Git
 
-## GitHub
-`https://github.com/AlexPastukhh/feed_and_search_and_bank_and_brain`
+- Постоянный Docker checkout через Fortis Repo: `/workspace/repos/feed_and_search_and_bank_and_brain`.
+- Независимый Windows checkout: `$HOME\Repos\feed_and_search_and_bank_and_brain`.
+- GitHub: [AlexPastukhh/feed_and_search_and_bank_and_brain](https://github.com/AlexPastukhh/feed_and_search_and_bank_and_brain).
 
-## Windows checkout
-`$HOME\Repos\feed_and_search_and_bank_and_brain` — independent clone,
-not a bind mount. GitHub is the synchronization boundary.
+Изменения выполняются в Fortis Repo checkout → тесты → commit/push в GitHub → в Windows `git pull --ff-only origin main`. **Автоматической синхронизации между checkout нет.** Не копировать `.env`, секреты, базы и volume через Git.
 
-## Change propagation
-1. Work and review changes in Docker checkout.
-2. Run tests and inspect `git diff --check`.
-3. Commit and push only the intended repository files.
-4. On Windows: `git pull --ff-only origin main`.
-5. Run Windows-specific checks only when needed.
+## Запуск на Windows / Docker Desktop
 
-Never copy credentials, database volumes or local `.env` through Git.
-
-## Local Windows with Docker Desktop
-From PowerShell in the Windows clone:
+В PowerShell из Windows checkout:
 
 ```powershell
+Set-Location "$HOME\Repos\feed_and_search_and_bank_and_brain"
+git status --short --branch
+git pull --ff-only origin main
+
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-# Edit .env: set a local-only POSTGRES_PASSWORD before starting.
+# Отредактируйте .env: задайте локальный POSTGRES_PASSWORD.
+# Спецсимволы в DATABASE_URL требуют URL-encoding в строке подключения.
+
 docker compose up --build -d
-docker compose ps
-Invoke-RestMethod http://127.0.0.1:8000/health/live
-Invoke-RestMethod http://127.0.0.1:8000/health/ready
+docker compose ps -a
+
+# Дождитесь health: healthy — сразу после старта API может ещё запускаться.
+curl.exe http://127.0.0.1:8000/health/live
+curl.exe http://127.0.0.1:8000/health/ready
 ```
 
-The compose stack creates the database, runs Alembic migrations, then launches
-the API and an **idle Phase-0 worker**. Worker job processing is NOT implemented yet.
+`compose.yaml` поднимает PostgreSQL, однократный `migrate` (Alembic), FastAPI `api` и **рабочий `worker`**. Worker обрабатывает очередь и планирует синхронизации RSS; статус `migrate: Exited (0)` ожидаем.
 
-To view logs: `docker compose logs --tail=100 api worker migrate`.
+Диагностика:
 
-To stop without deleting stored data: `docker compose down`.
-Do not use `down -v` unless intentionally deleting the local database.
+```powershell
+docker compose logs --tail=100 api worker migrate
+docker compose ps -a
+```
 
-## Python dev environment (optional)
+Остановка без удаления данных: `docker compose down`. Команда `docker compose down -v` удалит volume и приведёт к потере базы.
+
+## Проверка функций
+
+- [RSS-FIRST-SLICE.md](RSS-FIRST-SLICE.md): создание RSS-источника/подписки, ручной и фоновый sync, идемпотентность.
+- [CONTENT-SEARCH.md](CONTENT-SEARCH.md): поиск по уже сохранённым публикациям и извлечение публичной HTML-статьи.
+
+HTTP API локально доступен по `http://127.0.0.1:8000`, интерактивная схема FastAPI — `/docs`, OpenAPI — `/openapi.json`. Из проверенного контейнера Fortis Repo на Docker Desktop API ранее был доступен по `http://host.docker.internal:8000`; это зависит от сети и не даёт полномочий на безопасный удалённый доступ. **У API пока нет авторизации.**
+
+## Локальные Python-тесты
+
+В среде с Python >= 3.11 и зависимостями:
+
 ```bash
-python -m venv .venv
-. .venv/bin/activate
 python -m pip install -e ".[dev]"
 ruff check .
 pytest -q
 ```
 
-The app requires DATABASE_URL. Docker Compose supplies it to containers.
+Для PostgreSQL-интеграционных тестов нужен **отдельный disposable test database**. Никогда не устанавливайте `RUN_DB_INTEGRATION_TESTS=1` на постоянную рабочую базу: тесты создают записи.
 
-## CI workflow activation
+В среде Fortis Repo сейчас нет установленных зависимостей приложения, `pip` и Docker Engine. Там доступны базовые проверки:
 
-The workflow template is `ci/workflow-template.yml`. Activating it requires
-placing it at `.github/workflows/ci.yml` using GitHub credentials with
-workflow-management permission. The Fortis PAT currently cannot make this
-change. Do not embed or transfer PATs into repository files.
+```bash
+python3 -m compileall -q src alembic tests
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_feeds.py -q
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_connectors.py -q
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_content.py -q
+python3 -m unittest discover -s tests -p test_structure.py -q
+git diff --check
+```
 
-## First RSS vertical slice
+Такие проверки **не заменяют Docker end-to-end**.
 
-See [RSS-FIRST-SLICE.md](RSS-FIRST-SLICE.md) for step-by-step PowerShell API
-requests and expected sync status. The worker is no longer idle.
+## CI
 
-Do not set `RUN_DB_INTEGRATION_TESTS=1` against your persistent database.
-The integration test creates records and is reserved for disposable CI DBs.
-
-## Content/search slice
-
-See [CONTENT-SEARCH.md](CONTENT-SEARCH.md). Migration 20261104_0003 adds
-ContentChunk + search index and preserves old RSS versions. Article text
-extraction happens only via an explicit POST for a chosen resource.
+Есть шаблон `ci/workflow-template.yml`, но рабочий workflow в `.github/workflows/` **не установлен**, поскольку текущие полномочия Fortis GitHub PAT не позволяют его публиковать. Для включения потребуется владелец/токен с правами на workflows. Секреты и PAT не добавлять в файлы репозитория.

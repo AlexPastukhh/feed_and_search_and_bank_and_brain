@@ -1,7 +1,9 @@
 # Phase 0 — Repository skeleton
 
-> Historical Phase 0 snapshot. The RSS vertical slice later activated the worker
-> and added Source/Subscription/Resource persistence; see [RSS-FIRST-SLICE.md](RSS-FIRST-SLICE.md).
+> **Historical record only** of the initial scaffold (not a current product status).
+> Later slices implemented RSS, a working worker, content extraction and FTS.
+> For the current, authoritative status see [STATUS.md](STATUS.md);
+> for the updated Action-centric design see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Delivered components
 - Installable Python package and FastAPI application.
@@ -16,7 +18,7 @@
 - Unit/contract smoke tests and a GitHub Actions workflow template. The template
 is not active until installed by credentials authorized for `.github/workflows/`.
 
-## Intentionally not delivered yet
+## Not delivered **in Phase 0** (historical)
 - Source/Subscription tables.
 - Durable job table or worker consumer.
 - RSS/API connectors.
@@ -30,7 +32,7 @@ is not active until installed by credentials authorized for `.github/workflows/`
 - The prepared CI template would run migrations and tests against PostgreSQL,
 but it cannot run automatically until activated.
 
-## Definition of Done
+## Original Phase 0 acceptance notes (historical)
 - Sources committed and published to GitHub.
 - Python syntax and stdlib structure tests pass in Fortis.
 - CI workflow activated by an authorized account, then GitHub Actions results
