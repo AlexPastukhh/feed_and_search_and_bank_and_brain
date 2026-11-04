@@ -54,20 +54,26 @@ docker compose ps -a
 python -m info_hub.action_workflow examples/actions/rss_sync.yaml
 ```
 
-### Конфигурация Action Broker и Action worker
+### Выбор инструмента и источника в Action
 
-Поддерживается одна capability — `information.sync` — через Feedbrain HTTP API. Логические источники из Workflow должны быть явно привязаны к уже существующим подпискам Feedbrain.
+В V1 **инструмент, операция и источник указываются в самом Action YAML**. Для Feedbrain:
 
-В `.env` Docker Compose (пример — в `.env.example`):
-
-```dotenv
-# Найдите ID в GET /subscriptions; значение ниже исключительно пример.
-ACTION_FEEDBRAIN_SOURCES_JSON={"ai_articles":11}
-# Внутри Docker Compose по умолчанию http://api:8000
-# ACTION_FEEDBRAIN_URL=http://api:8000
+```yaml
+workflow:
+  schema: 1
+  steps:
+    - id: refresh_feed
+      tool: feedbrain
+      capability: information.sync
+      with:
+        source:
+          type: subscription
+          id: 1
 ```
 
-Broker не принимает адреса, пути HTTP или subscription ID из Action YAML: `with.source` — только логический алиас. По умолчанию bindings **пустые**, поэтому вызовы по ненастроенным источникам отклоняются. Изменение `.env` требует пересоздания `api` и `action-worker`. Broker исполняется только по запросу Run или из очереди worker; сама конфигурация ничего не запускает.
+`id: 1` — пример, а не обязательное значение: получить реальные ID можно через `GET /subscriptions`. Универсальный формат ядра — `tool` + `capability` + `with`. `source` допускает разные типы ресурсов для разных инструментов; **только Feedbrain adapter** требует `type: subscription` и целочисленный ID. Название `subscription` не встроено в Action Core.
+
+**Привязка `ACTION_FEEDBRAIN_SOURCES_JSON` больше не нужна.** Старый параметр из `.env` можно удалить; его значение не используется. В доверенной конфигурации остаётся только адрес подключения Feedbrain (внутри Docker по умолчанию `http://api:8000`, необязательный `ACTION_FEEDBRAIN_URL`). Не помещайте в Action сетевые URL или ключи доступа к инструменту. Сохранение YAML ничего не запускает, запуск инициируется отдельным API.
 
 Локальная проверка HTTP-контракта **без запуска реальной RSS-синхронизации** (не нужен PostgreSQL; тест поднимает собственный временный HTTP-сервер):
 
@@ -80,16 +86,16 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_broker.py -q
 
 **Только после `git pull --ff-only origin main` и `docker compose up --build -d`.** Этот шаг действительно инициирует синхронизацию RSS. Выберите **только подписку, которую намеренно разрешено синхронизировать**, желательно отдельную тестовую. Не проверять на чужих/дорогих источниках; не запускать тестовые скрипты на постоянной БД с `RUN_DB_INTEGRATION_TESTS=1`.
 
-1. Получите реальные подписки: `Invoke-RestMethod http://127.0.0.1:8000/subscriptions`. Найдите `id` подходящей подписки.
-2. В локальном `.env` задайте, например, `ACTION_FEEDBRAIN_SOURCES_JSON={"ai_articles":11}`, **заменив 11 настоящим ID**. Это binding логического алиаса из `examples/actions/rss_sync.yaml` / сохранённого Action; без него API вернёт `409` до вызова Feedbrain. URL API внутри Docker по умолчанию — `http://api:8000`.
-3. Пересоздайте контейнеры изменённой конфигурацией: `docker compose up --build -d`. Проверяйте `docker compose ps -a`: миграция `20261104_0005` должна успешно завершиться, `api` — healthy, `worker` и **`action-worker`** — запущены. Для ошибок: `docker compose logs --tail=100 api action-worker worker migrate`.
-4. Используйте **уже созданный** Action #1, если у него `with.source: ai_articles`, или создайте отдельный Action по инструкции ниже.
+1. Посмотрите реальные подписки: `Invoke-RestMethod http://127.0.0.1:8000/subscriptions`. Выберите ID тестовой/разрешённой подписки.
+2. В `examples/actions/rss_sync.yaml` замените `with.source.id` на этот ID. **Не добавляйте сопоставления в `.env`**: ID задаётся в YAML Action.
+3. Проверьте `docker compose ps -a`: миграция `20261104_0005` должна завершиться успешно, `api` — healthy, `worker` и `action-worker` — запущены. При проблемах: `docker compose logs --tail=100 api action-worker worker migrate`.
+4. Создайте **новый тестовый Action** из обновлённого YAML (пример в разделе «Проверка Action Registry/API» ниже) и используйте его ID. Ранее созданный Action #1 v1/v2 использует старое `with.source: ai_articles` и не исполняется в новом формате: для него можно отдельно опубликовать v3, не меняя v1/v2.
 
 PowerShell (после выбора конкретного ID Action):
 
 ```powershell
 $base = "http://127.0.0.1:8000"
-$actionId = 1  # Проверьте GET /actions/$actionId перед запуском!
+$actionId = 1  # Замените на ID нового Action с актуальным форматом source!
 Invoke-RestMethod -Uri "$base/actions/$actionId"
 
 $run = Invoke-RestMethod -Method Post -Uri "$base/actions/$actionId/runs" `
@@ -107,9 +113,9 @@ Invoke-RestMethod -Uri "$base/actions/$actionId/runs"
 
 Ожидается: `POST` возвращает `202 queued`; отдельный Action worker берёт Run, вызывает Feedbrain `POST /subscriptions/{id}/sync` и ждёт конечного `IngestionRun`. В `GET /action-runs/{id}` будут зафиксированы версия Action, шаг, фактически использованный `feedbrain`, `feedbrain:ingestion_run:<id>`, статус, счётчики и итог. При ошибке — `failed` и `error_code`; `202` от Feedbrain **не равно** успешному завершению Action.
 
-**Проверяемые отказы:** ненастроенный алиас или Action без Workflow дают `409` и **не создают Run**; повторный запуск одного Action, пока предыдущий `queued/running`, тоже даёт `409`. Worker **не повторяет** неоднозначный внешний вызов после аварии: зависшее более двух часов выполнение помечается `interrupted`. Запуск с изменённой версией создаёт новый Run, не переписывает старый.
+**Проверяемые отказы:** неизвестный `tool`, неподдерживаемый `source.type` или Action без Workflow дают `409` и **не создают Run**; повторный запуск одного Action, пока предыдущий `queued/running`, тоже даёт `409`. Worker **не повторяет** неоднозначный внешний вызов после аварии: зависшее более двух часов выполнение помечается `interrupted`. Запуск с изменённой версией создаёт новый Run, не переписывает старый.
 
-**Ограничения:** автоматический Action Schedule пока не реализован; `schedule` в YAML остаётся только декларацией. HTTP API пока без auth, поэтому не открывайте его недоверенным клиентам и не назначайте избыточные bindings.
+**Ограничения:** автоматический Action Schedule пока не реализован; `schedule` в YAML остаётся только декларацией. HTTP API пока без auth, поэтому не открывайте его недоверенным клиентам; создание Action со ссылкой на любую доступную подписку сейчас не требует отдельных permissions.
 
 Интеграционный набор `tests/test_action_run_integration.py` работает с мигрированной PostgreSQL и имитированным внешним HTTP-ответом. Запускать его можно **только** в отдельной одноразовой тестовой базе с `RUN_DB_INTEGRATION_TESTS=1`, а не на постоянном Feedbrain volume.
 

@@ -26,6 +26,10 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
   Do not invent tool availability or assume an external app exposes a specific API.
 - Actions describe **what** must be achieved, tools provide **how**; execution,
   representation and scheduling are separate responsibilities.
+- Action Workflow V1 names the tool explicitly and passes tool-defined
+  parameters in `with`; `source` may identify different resource types,
+  not exclusively a Feedbrain subscription. Tool endpoints/credentials are
+  runtime configuration, not Action parameters. Historic ActionVersions are immutable.
 - Deterministic collection schedules (Feedbrain) and AI Action schedules differ.
 
 ## Engineering rules
