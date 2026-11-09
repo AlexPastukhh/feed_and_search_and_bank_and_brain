@@ -83,4 +83,4 @@
 
 **Связанные UC:** [001](#uc-act-001), [002](#uc-act-002), [005](information.md#uc-act-005).
 
-**Владельцы:** [целевая архитектура](../ARCHITECTURE.md), [безопасность](../SECURITY.md), [границы V1](../ACTION-CORE.md), [текущий план](../PROJECT.md).
+**Владельцы:** [целевая архитектура](../ARCHITECTURE.md), [безопасность](../SECURITY.md), [границы V1](../ACTION-CORE.md), [открытые задачи](../BACKLOG-IMPROVEMENTS.md).

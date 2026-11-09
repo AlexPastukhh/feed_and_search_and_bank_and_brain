@@ -9,7 +9,8 @@
 | Документ | Единственная ответственность |
 |---|---|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Целевой дизайн: Action, исполнители, инструменты, источники, представления и границы Feedbrain |
-| [PROJECT.md](docs/PROJECT.md) | **Current State / History / Plan** — единый трекер прогресса, выполненных и будущих задач |
+| [PROJECT.md](docs/PROJECT.md) | Проверенное состояние и датированная история решений/проверок |
+| [BACKLOG-IMPROVEMENTS.md](docs/BACKLOG-IMPROVEMENTS.md) | Единый список открытых задач и условных улучшений |
 | [ACTION-CORE.md](docs/ACTION-CORE.md) | Первая рабочая версия: простой YAML, Broker → Feedbrain, история и расписание |
 | [Use Cases](docs/use-cases/README.md) | Повторяемые способы работы с Actions: от AI-инструкции до программного мониторинга, фида и ожидания действия |
 | [SECURITY.md](docs/SECURITY.md) | Сетевая доступность, текущие риски и необходимые permissions |
@@ -32,4 +33,4 @@ HTTP API позволяет читать источники, публикаци�
 
 Имя репозитория историческое; Python package называется `info_hub`, Docker Compose project — `feedbrain`.
 
-**Текущий статус, проверенные возможности и ближайшие задачи:** [PROJECT.md](docs/PROJECT.md). Принципы оркестрации инструментов и работы с результатами — [ARCHITECTURE.md](docs/ARCHITECTURE.md); детали YAML и API V1 — [ACTION-CORE.md](docs/ACTION-CORE.md).
+**Текущий статус и проверенные возможности:** [PROJECT.md](docs/PROJECT.md); **ближайшие задачи:** [BACKLOG-IMPROVEMENTS.md](docs/BACKLOG-IMPROVEMENTS.md). Принципы оркестрации инструментов и работы с результатами — [ARCHITECTURE.md](docs/ARCHITECTURE.md); детали YAML и API V1 — [ACTION-CORE.md](docs/ACTION-CORE.md).
