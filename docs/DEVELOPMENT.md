@@ -8,7 +8,7 @@
 - Независимый Windows checkout: `$HOME\Repos\feed_and_search_and_bank_and_brain`.
 - GitHub: [AlexPastukhh/feed_and_search_and_bank_and_brain](https://github.com/AlexPastukhh/feed_and_search_and_bank_and_brain).
 
-Изменения выполняются в Fortis Repo checkout → тесты → commit/push в GitHub → в Windows `git pull --ff-only origin main`. **Автоматической синхронизации между checkout нет.** Не копировать `.env`, секреты, базы и volume через Git.
+Изменения готовятся в **отдельном task worktree**, затем проходят проверки, авторизованную публикацию через **Fortis Gateway**, GitHub PR и слияние владельцем. Только **принятый merged `main` с проверенным SHA** передаётся на Windows через [Mirror workflow](https://github.com/AlexPastukhh/docke-windows-mirror/blob/main/docs/WORKFLOW.md). Ни Docker primary `main`, ни Windows-копию не использовать для обходного direct push или внедрения файлов из task-ветки. **Автоматической синхронизации checkout нет.** Не копировать `.env`, секреты, базы и volume через Git. См. [UC-CONT-002/003](https://github.com/AlexPastukhh/fortis-container/blob/main/docs/use-cases/delivery.md).
 
 ## Запуск на Windows / Docker Desktop
 
@@ -17,7 +17,7 @@
 ```powershell
 Set-Location "$HOME\Repos\feed_and_search_and_bank_and_brain"
 git status --short --branch
-git pull --ff-only origin main
+git rev-parse HEAD  # Сверьте с принятой версией main, доставленной через Mirror.
 
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 # Отредактируйте .env: задайте локальный POSTGRES_PASSWORD.
@@ -84,7 +84,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p test_action_broker.py -q
 
 ### Проверка ручного запуска Action через новый worker
 
-**Только после `git pull --ff-only origin main` и `docker compose up --build -d`.** Этот шаг действительно инициирует синхронизацию RSS. Выберите **только подписку, которую намеренно разрешено синхронизировать**, желательно отдельную тестовую. Не проверять на чужих/дорогих источниках; не запускать тестовые скрипты на постоянной БД с `RUN_DB_INTEGRATION_TESTS=1`.
+**Только после доставки и проверки нужного merged `main` через Mirror и `docker compose up --build -d`.** Этот шаг действительно инициирует синхронизацию RSS. Выберите **только подписку, которую намеренно разрешено синхронизировать**, желательно отдельную тестовую. Не проверять на чужих/дорогих источниках; не запускать тестовые скрипты на постоянной БД с `RUN_DB_INTEGRATION_TESTS=1`.
 
 1. Посмотрите реальные подписки: `Invoke-RestMethod http://127.0.0.1:8000/subscriptions`. Выберите ID тестовой/разрешённой подписки.
 2. В `examples/actions/rss_sync.yaml` замените `with.source.id` на этот ID. **Не добавляйте сопоставления в `.env`**: ID задаётся в YAML Action.
@@ -147,7 +147,7 @@ Invoke-RestMethod -Uri "$base/actions/$actionId/runs"
 
 ```powershell
 Set-Location "$HOME\Repos\feed_and_search_and_bank_and_brain"
-git pull --ff-only origin main
+git rev-parse HEAD  # До запуска убедитесь, что Mirror доставил нужный merged main.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_action_scheduler_restart.ps1
 ```
 
@@ -161,7 +161,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_action_
 
 ### Проверка Action Registry/API после обновления Docker
 
-Этот сценарий **создаёт тестовый Action в текущей базе**; его можно выполнять в локальном доверенном окружении, но **не** на посторонней/рабочей базе без согласования. Сначала выполните `git pull --ff-only origin main` и `docker compose up --build -d` по инструкции выше. Проверьте, что контейнер `migrate` завершился с кодом **0** и применил текущую ревизию `20261104_0006` (включая `0004` Registry и `0005` ActionRun).
+Этот сценарий **создаёт тестовый Action в текущей базе**; его можно выполнять в локальном доверенном окружении, но **не** на посторонней/рабочей базе без согласования. Сначала подтвердите доставку нужного merged `main` через Mirror и выполните `docker compose up --build -d` по инструкции выше. Проверьте, что контейнер `migrate` завершился с кодом **0** и применил текущую ревизию `20261104_0006` (включая `0004` Registry и `0005` ActionRun).
 
 В Windows PowerShell:
 
@@ -225,4 +225,4 @@ git diff --check
 
 ## CI
 
-Есть шаблон `ci/workflow-template.yml`, но рабочий workflow в `.github/workflows/` **не установлен**, поскольку текущие полномочия Fortis GitHub PAT не позволяют его публиковать. Для включения потребуется владелец/токен с правами на workflows. Секреты и PAT не добавлять в файлы репозитория.
+Есть шаблон `ci/workflow-template.yml`, но рабочий workflow в `.github/workflows/` **не установлен**. CI/CD отложен до функциональных проверок ([backlog](BACKLOG-IMPROVEMENTS.md)). Если его включать, изменение файла workflow должно проходить через авторизованный **Fortis Gateway** с необходимыми правами GitHub на workflow-файлы и подтверждением владельца, а не через старый PAT/credential helper. Наличие шаблона не доказывает запуск CI. Секреты и PAT не добавлять в репозиторий.

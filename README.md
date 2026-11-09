@@ -1,6 +1,6 @@
 # feed_and_search_and_bank_and_brain
 
-Этот репозиторий содержит **Feedbrain** — локальный сервис для фонового получения, хранения, подготовки и поиска информации. Он может служить одним из инструментов более широкой **Action System**.
+Этот репозиторий содержит первую реализацию **Action System** и подключаемый сервис **Feedbrain** для фонового получения, хранения, подготовки и поиска информации. Для нас главный прикладной сценарий — поиск оплачиваемой работы и мониторинг интересующих изменений; функциональные способы использования описаны в [Use Cases](docs/use-cases/README.md).
 
 **Action System** — целевая, пока лишь частично реализованная среда, в которой пользователь формулирует, версионирует и планирует **Actions**, а AI или другой исполнитель выполняет их через возможности подключённых **своих или сторонних приложений**. Приложения рассматриваются как чёрные ящики: нужен доступный инструмент/API/MCP/другой вызываемый интерфейс, а не знание внутренней реализации. Feedbrain **не обязателен** для выполнения каждого Action.
 
@@ -9,8 +9,10 @@
 | Документ | Единственная ответственность |
 |---|---|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Целевой дизайн: Action, исполнители, инструменты, источники, представления и границы Feedbrain |
-| [PROJECT.md](docs/PROJECT.md) | **Current State / History / Plan** — единый трекер прогресса, выполненных и будущих задач |
+| [PROJECT.md](docs/PROJECT.md) | Проверенное состояние и датированная история решений/проверок |
+| [BACKLOG-IMPROVEMENTS.md](docs/BACKLOG-IMPROVEMENTS.md) | Единый список открытых задач и условных улучшений |
 | [ACTION-CORE.md](docs/ACTION-CORE.md) | Первая рабочая версия: простой YAML, Broker → Feedbrain, история и расписание |
+| [Use Cases](docs/use-cases/README.md) | Повторяемые способы работы с Actions: от AI-инструкции до программного мониторинга, фида и ожидания действия |
 | [SECURITY.md](docs/SECURITY.md) | Сетевая доступность, текущие риски и необходимые permissions |
 | [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Локальный запуск, тесты, Git workflow, CI |
 | [RSS-FIRST-SLICE.md](docs/RSS-FIRST-SLICE.md) | Ручная проверка RSS и фоновой синхронизации |
@@ -31,4 +33,4 @@ HTTP API позволяет читать источники, публикаци�
 
 Имя репозитория историческое; Python package называется `info_hub`, Docker Compose project — `feedbrain`.
 
-**Текущий статус, проверенные возможности и ближайшие задачи:** [PROJECT.md](docs/PROJECT.md). Принципы оркестрации инструментов и работы с результатами — [ARCHITECTURE.md](docs/ARCHITECTURE.md); детали YAML и API V1 — [ACTION-CORE.md](docs/ACTION-CORE.md).
+**Текущий статус и проверенные возможности:** [PROJECT.md](docs/PROJECT.md); **ближайшие задачи:** [BACKLOG-IMPROVEMENTS.md](docs/BACKLOG-IMPROVEMENTS.md). Принципы оркестрации инструментов и работы с результатами — [ARCHITECTURE.md](docs/ARCHITECTURE.md); детали YAML и API V1 — [ACTION-CORE.md](docs/ACTION-CORE.md).
