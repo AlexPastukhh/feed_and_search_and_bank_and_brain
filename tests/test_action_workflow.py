@@ -253,6 +253,16 @@ schedule:
         doc = parse_action_yaml(example.read_text(encoding="utf-8"))
         self.assertEqual(doc["workflow"]["steps"][0]["capability"], "information.sync")
 
+    def test_earnings_research_v2_is_instruction_only(self):
+        example = Path(__file__).resolve().parents[1] / (
+            "examples/actions/earning_opportunities_v2.yaml"
+        )
+        doc = parse_action_yaml(example.read_text(encoding="utf-8"))
+        self.assertEqual(doc["category"], "research")
+        self.assertIsNone(doc["workflow"])
+        self.assertIsNone(doc["schedule"])
+        self.assertTrue(doc["instruction"].startswith("НАЗНАЧЕНИЕ"))
+
     def test_parses_document_like_compose(self):
         doc = parse_action_yaml(self.EXAMPLE)
         self.assertEqual(doc["name"], "Обновить архив")
