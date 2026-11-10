@@ -263,6 +263,18 @@ schedule:
         self.assertIsNone(doc["schedule"])
         self.assertTrue(doc["instruction"].startswith("НАЗНАЧЕНИЕ"))
 
+    def test_earnings_research_v3_declares_result_contract(self):
+        example = Path(__file__).resolve().parents[1] / (
+            "examples/actions/earning_opportunities_v3.yaml"
+        )
+        doc = parse_action_yaml(example.read_text(encoding="utf-8"))
+        self.assertEqual(doc["category"], "research")
+        self.assertIsNone(doc["workflow"])
+        for name in ("SOURCES", "RESEARCH_ACTION_PROPOSALS",
+                     "MONITORING_ACTION_PROPOSALS", "OVERVIEW",
+                     "result.json", "report.md"):
+            self.assertIn(name, doc["instruction"])
+
     def test_parses_document_like_compose(self):
         doc = parse_action_yaml(self.EXAMPLE)
         self.assertEqual(doc["name"], "Обновить архив")
