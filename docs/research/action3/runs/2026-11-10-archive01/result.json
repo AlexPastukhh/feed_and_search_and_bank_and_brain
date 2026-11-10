@@ -1,0 +1,268 @@
+{
+  "metadata": {
+    "report_id": "action3-v2-2026-11-10-archive01",
+    "action_id": 3,
+    "action_version": 2,
+    "executed_on": "2026-11-10",
+    "execution_mode": "external_ai_manual",
+    "research_question": "Какие направления заработка и источники дальнейшего мониторинга стоит проверить?",
+    "coverage": "Публичные отраслевые отчёты 2026 года, официальная документация площадок и отдельные отзывы; без индивидуальной повторной проверки открытых заказов.",
+    "provenance": "Структурированный архив предыдущего ручного исследования Action #3 v2; сводка создана позднее без нового внешнего исследования.",
+    "limitations": [
+      "Нет данных о конверсии в заказы и реальной платёжеспособности конкретных клиентов",
+      "Статистику разных платформ нельзя складывать",
+      "Не проверены текущие доступность конкретных объявлений и права API",
+      "Интеграции Sources/Tools и автоматические ActionRuns не выполнялись"
+    ]
+  },
+  "sources": [
+    {
+      "id": "SRC-001",
+      "name": "Freelancer.com Project Search",
+      "url": "https://developers.freelancer.com/",
+      "what_to_find": "Оплачиваемые проектные заказы на API integration, automation, .NET/React",
+      "access_method": "Официальный API/SDK, доступ и условия требуют проверки",
+      "access_verified": false,
+      "candidate_filters": [
+        "workflow automation",
+        "AI integration",
+        "CRM integration",
+        "API integration",
+        ".NET",
+        "React"
+      ],
+      "evidence_ids": [
+        "EV-005"
+      ],
+      "notes": "Кандидат №1 для проверки программного мониторинга; ни один поиск через API пока не выполнен."
+    },
+    {
+      "id": "SRC-002",
+      "name": "Upwork Saved Job Searches",
+      "url": "https://www.upwork.com/",
+      "what_to_find": "Заказы на автоматизацию, исправление приложений, интеграции",
+      "access_method": "Сохранённые поиски на платформе, ручное чтение",
+      "access_verified": false,
+      "candidate_filters": [
+        "automation",
+        "OpenAI integration",
+        "React bug fix"
+      ],
+      "evidence_ids": [
+        "EV-006"
+      ],
+      "notes": "Не пытаться использовать прекращённый RSS; доступность запросов и права не проверены."
+    },
+    {
+      "id": "SRC-003",
+      "name": "Remote OK",
+      "url": "https://remoteok.com/api",
+      "what_to_find": "Удалённая работа по backend/frontend/AI integration",
+      "access_method": "Публичный JSON/RSS, условия использования требуют проверки",
+      "access_verified": false,
+      "candidate_filters": [
+        "react",
+        "backend",
+        "ai"
+      ],
+      "evidence_ids": [
+        "EV-007"
+      ],
+      "notes": "Дополнительный поток, не замена проектным заказам."
+    },
+    {
+      "id": "SRC-004",
+      "name": "Upwork Monthly Hiring Insights",
+      "url": "https://www.upwork.com/research/upwork-monthly-hiring-insights-september-2026",
+      "what_to_find": "Динамика направлений спроса для Research",
+      "access_method": "Публичный исследовательский отчёт",
+      "access_verified": true,
+      "candidate_filters": [
+        "AI integration",
+        "automation"
+      ],
+      "evidence_ids": [
+        "EV-001"
+      ],
+      "notes": "Не фид отдельных заказов."
+    },
+    {
+      "id": "SRC-005",
+      "name": "Fiverr Business Trends Index",
+      "url": "https://www.fiverr.com/resources/guides/reports/business-trends-index-june-2026/",
+      "what_to_find": "Сигналы новых услуг и изменений поискового интереса",
+      "access_method": "Периодический публичный отчёт",
+      "access_verified": true,
+      "candidate_filters": [
+        "n8n",
+        "data cleaning",
+        "PDF conversion"
+      ],
+      "evidence_ids": [
+        "EV-003"
+      ],
+      "notes": "Нерегулярный отчёт, не база заказов."
+    }
+  ],
+  "research_action_proposals": [
+    {
+      "id": "RES-001",
+      "change": "create",
+      "target_action_id": null,
+      "title": "Проверка платного спроса на исправление AI-generated приложений",
+      "reason": "Опрос разработчиков подтверждает проблему качества, но не цену отдельной услуги.",
+      "suggested_changes": "Исследовать независимые первичные клиентские запросы, упаковку узкого аудита и барьеры входа; проверить минимум одним демонстрационным кейсом.",
+      "evidence_ids": [
+        "EV-004"
+      ],
+      "status": "proposed"
+    },
+    {
+      "id": "RES-002",
+      "change": "update",
+      "target_action_id": 3,
+      "title": "Структурированный итог Action №3",
+      "reason": "Предыдущее исследование сформировало содержательные выводы, но неудобно превращать их в адресуемые следующие действия.",
+      "suggested_changes": "В следующей версии предусмотреть четыре именованных типа результатов, ID, Evidence и сохранение в доступное хранилище.",
+      "evidence_ids": [
+        "EV-001",
+        "EV-003"
+      ],
+      "status": "proposed"
+    }
+  ],
+  "monitoring_action_proposals": [
+    {
+      "id": "MON-001",
+      "change": "create",
+      "target_action_id": null,
+      "title": "Мониторинг проектного спроса на интеграции и автоматизацию",
+      "source_ids": [
+        "SRC-001"
+      ],
+      "reason": "Данные об отдельных оплачиваемых задачах нужны, чтобы проверить платный спрос на выбранные услуги.",
+      "suggested_changes": "После проверки доступа к Freelancer API читать проектные запросы по направлениям, сохранять URL/ID, бюджет и валюту если указаны, дедупликацию и изменения; периодичность только после реальной оценки API и лимитов.",
+      "filters": [
+        "AI integration",
+        "workflow automation",
+        "CRM integration",
+        ".NET",
+        "React"
+      ],
+      "period": "candidate: daily or weekly; not yet scheduled",
+      "signals": [
+        "new_projects",
+        "changed_terms",
+        "changed_status_if_available"
+      ],
+      "evidence_ids": [
+        "EV-005"
+      ],
+      "status": "proposed"
+    },
+    {
+      "id": "MON-002",
+      "change": "create",
+      "target_action_id": null,
+      "title": "Обзор удалённых вакансий по инженерным направлениям",
+      "source_ids": [
+        "SRC-003"
+      ],
+      "reason": "Отдельно отслеживать долгосрочный поток, не смешивая с разовыми заказами.",
+      "suggested_changes": "Проверить разрешённые API/RSS Remote OK и поля публикаций; затем выбрать фильтры и дедупликацию.",
+      "filters": [
+        "react",
+        "backend",
+        ".NET",
+        "AI integration"
+      ],
+      "period": "candidate: weekly; not yet scheduled",
+      "signals": [
+        "new_jobs"
+      ],
+      "evidence_ids": [
+        "EV-007"
+      ],
+      "status": "proposed"
+    }
+  ],
+  "overview": {
+    "summary": "Приоритет для проверки: интеграции и автоматизация процессов; основа — .NET/React. Отдельные гипотезы: исправление AI-generated приложений и надёжная обработка документов. AI-видео и 2D/3D пока оставить экспериментальными.",
+    "recommended_focus": [
+      "Прикладная автоматизация с проверяемым результатом",
+      "Классические .NET/React задачи как базовое направление",
+      "Узкий сервис исправления и тестирования AI-generated приложений — гипотеза"
+    ],
+    "defer": [
+      "Коммерческая ставка на AI-видео/3D до подтверждения навыков и качества"
+    ],
+    "next_decisions": [
+      "Проверить доступ и условия Freelancer.com API",
+      "Выбрать минимальный эксперимент по интеграции бизнес-процесса",
+      "Проверить реальный первичный спрос на исправление AI-приложений",
+      "Выбрать предложения мониторинга только после подтверждения источников"
+    ],
+    "uncertainties": [
+      "Нет проверенных актуальных индивидуальных заказов в этом запуске",
+      "Нет подтверждённой выручки или откликов",
+      "Нет истории систематического мониторинга"
+    ],
+    "evidence_ids": [
+      "EV-001",
+      "EV-002",
+      "EV-003",
+      "EV-004"
+    ]
+  },
+  "evidence": [
+    {
+      "id": "EV-001",
+      "url": "https://www.upwork.com/research/upwork-monthly-hiring-insights-september-2026",
+      "observation": "В сентябрьском отчёте отмечены запросы на прикладную AI-интеграцию и автоматизацию.",
+      "access_on": "2026-11-10",
+      "caveat": "Отчёт одной платформы; архивирование прежнего исследования без новой проверки."
+    },
+    {
+      "id": "EV-002",
+      "url": "https://www.upwork.com/research/in-demand-skills-2026",
+      "observation": "Категории full-stack, frontend/backend и автоматизация отмечены среди востребованных навыков.",
+      "access_on": "2026-11-10",
+      "caveat": "Методология основана на заработке Upwork в США за 2025 год."
+    },
+    {
+      "id": "EV-003",
+      "url": "https://www.fiverr.com/resources/guides/reports/business-trends-index-june-2026/",
+      "observation": "Отмечен рост поискового интереса к Excel data cleaning, PDF to Excel и n8n AI automation.",
+      "access_on": "2026-11-10",
+      "caveat": "Поисковые запросы Fiverr, а не оплаченные заказы."
+    },
+    {
+      "id": "EV-004",
+      "url": "https://survey.stackoverflow.co/2026/ai/data",
+      "observation": "Опрос фиксирует ограничения доверия к сгенерированному AI коду и потребность в проверке.",
+      "access_on": "2026-11-10",
+      "caveat": "Не доказывает платный спрос на услугу по исправлению приложений."
+    },
+    {
+      "id": "EV-005",
+      "url": "https://developers.freelancer.com/",
+      "observation": "Официальная документация Freelancer.com API существует; возможность поиска проектов надо отдельно проверить по конкретному контракту и доступу.",
+      "access_on": "2026-11-10",
+      "caveat": "Наличие документации не означает активную интеграцию или выданные права."
+    },
+    {
+      "id": "EV-006",
+      "url": "https://support.upwork.com/hc/en-us/articles/52052528243731-RSS-deprecation",
+      "observation": "Upwork прекратил RSS-фиды вакансий/заказов.",
+      "access_on": "2026-11-10",
+      "caveat": "Использовать сохранённые поиски через разрешённый UI, не предполагая RSS/API."
+    },
+    {
+      "id": "EV-007",
+      "url": "https://remoteok.com/faq",
+      "observation": "Описываются публичные способы получения вакансий Remote OK.",
+      "access_on": "2026-11-10",
+      "caveat": "Преимущественно долгосрочные remote вакансии; требования к использованию перепроверить."
+    }
+  ]
+}
