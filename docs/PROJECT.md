@@ -1,6 +1,6 @@
 # Project: Current State · History
 
-> **Живой трекер проекта. Обновлено: 2026-11-09.**
+> **Живой трекер проекта. Обновлено: 2026-11-10.**
 > Здесь фиксируются **подтверждённое состояние** и **датированная история решений и проверок**. Все ещё не выполненные задачи и будущие улучшения — в [BACKLOG-IMPROVEMENTS.md](BACKLOG-IMPROVEMENTS.md).
 > Определения и принципы архитектуры — в [ARCHITECTURE.md](ARCHITECTURE.md), правила безопасности — в [SECURITY.md](SECURITY.md), запуск и тесты — в [DEVELOPMENT.md](DEVELOPMENT.md). История Git — первичный источник точных изменений кода.
 
@@ -33,6 +33,7 @@
 | Schedules | **Action Scheduler проверен end-to-end на Docker, включая рестарт worker**, RSS polling отдельный | Runs #2/#3 и #9 автоматически завершились `completed`; после `docker compose restart action-worker` расписание сохранилось и создало Run #9 → Feedbrain #17. Scheduler/manual конфликт → `active_run` без дубля. Сейчас `enabled=false` |
 | Representations | Поиск по chunks есть; универсальный менеджер представлений **не реализован** | Внешние таблицы, графы, Goal Map могут работать напрямую |
 | Security | API Feedbrain **и новые Action endpoints** без аутентификации | Local-only прототип; нет READ/ADMIN и scoped token |
+| Action поиска заработка | **Action #3 v1**, инструкция для внешнего AI без Workflow, сохранена в Registry 2026-11-10 | HTTP `POST /actions` → `201`, `GET /actions/3` подтвердил ID/версию; исходный YAML — [`examples/actions/earning_opportunities_v1.yaml`](../examples/actions/earning_opportunities_v1.yaml). Первый ручной поиск — предварительный, карточки не перепроверены; [`отчёт`](research/earning-opportunities-2026-11-10.md). Программного `ActionRun` для него нет |
 | CI и надёжность | Есть шаблон CI; активного workflow и проверенного backup/restore нет | Интеграционный набор требует одноразовой PostgreSQL БД |
 
 **Данные и точность:** RSS-хранилище сохраняет исходный XML item, не полный сырой HTML; статус `full` означает извлечённый доступный основной текст, не обход paywall. FTS ищет по fragments, поэтому несколько hits одной статьи — ожидаемое поведение; семантического поиска нет. Фоновая массовая веб-экстракция, расширенный импорт PDF/CSV/JSON, generic API connectors и встроенная LLM не реализованы.
@@ -73,6 +74,7 @@
 | 2026-11-04 | **Перезапуск Action worker с активным расписанием — полностью подтверждён:** пользователь выполнил `scripts/verify_action_scheduler_restart.ps1` на Windows Docker; после `docker compose restart action-worker` сохранился `next_run_at`, Scheduler самостоятельно создал ActionRun #9 (`initiated_by: schedule`, v3). StepRun #9, ActionResult и Feedbrain IngestionRun #17 завершились `completed`, Feedbrain: 0 seen/created/updated, без ошибок. Скрипт выполнил `finally` и выключил расписание. | Вывод Windows PowerShell: `Schedule persisted across worker restart`, `Scheduled Run=9, status=completed`, `RESTART TEST PASSED`, `Cleanup: schedule disabled`. **Независимая проверка Fortis Repo API:** `GET /action-runs/9` и `/runs/17` — `completed`; `GET /actions/1/schedule` — `enabled=false`, `next_run_at=null`, `last_enqueued_at=2026-11-04T11:50:22.589817Z`. Авария во время running Run и внешний timeout отдельно не проверены. |
 
 | 2026-11-09 | **Уточнён продуктовый приоритет:** раньше технические фазы вели к следующему адаптеру и проверкам отказов; теперь сначала проверяется поиск оплачиваемых задач, затем использование готового приложения фида. Action может быть только инструкцией для внешнего AI; автоматический AI-executor/состояния ожидания пока не реализуются. Sources — параметры Actions, Tools — устойчивые операции, предметные представления — у готовых приложений. | Решение о направлении разработки, **не новая реализация**. [Архитектура](ARCHITECTURE.md), [локальный реестр UC](use-cases/README.md). |
+| 2026-11-10 | **Первый поисковый Action зарегистрирован:** создан Action #3 v1 с AI-инструкцией без Workflow; пробный внешний поиск дал предварительную подборку. Это не запуск штатного worker и не подтверждение актуальности предложений. | `POST /actions` → HTTP `201`; независимый `GET /actions/3` → ID `3`, версия `1`, Workflow отсутствует. [YAML](../examples/actions/earning_opportunities_v1.yaml), [ручной предварительный отчёт](research/earning-opportunities-2026-11-10.md). Продолжение проверки — в [backlog](BACKLOG-IMPROVEMENTS.md). |
 
 **Новая запись должна отвечать:** *что сделано/изменено*, *почему*, *чем проверено*, *что осталось неготовым*. Наличие коммита не доказывает прохождение интеграционного теста.
 ---
