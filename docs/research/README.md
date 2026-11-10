@@ -4,7 +4,7 @@
 поле или универсальная система артефактов Action Core. См.
 [UC-ACT-001](../use-cases/actions.md#uc-act-001),
 [UC-ACT-004](../use-cases/information.md#uc-act-004) и
-[UC-ACT-009](../use-cases/actions.md#uc-act-009).
+[UC-ACT-009](../use-cases/review-results.md).
 
 ## Что производит Action №3
 

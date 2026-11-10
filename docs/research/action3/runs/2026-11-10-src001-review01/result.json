@@ -1,0 +1,194 @@
+{
+  "metadata": {
+    "report_id": "action3-v3-2026-11-10-src001-review01",
+    "action_id": 3,
+    "action_version": 3,
+    "executed_on": "2026-11-10",
+    "execution_mode": "external_ai_manual",
+    "research_question": "Пригоден ли SRC-001 для постоянного поиска оплачиваемых интеграций?",
+    "coverage": "Официальный SDK, API Terms, User Agreement, один публичный пример спроса, альтернативный способ Upwork. API не вызывался.",
+    "limitations": [
+      "Публичный просмотр не равен проверке OAuth2 API",
+      "Пока только локальная task-ветка, не опубликовано в main",
+      "Нет подтверждённых прав хранения, стоимости и rate limits"
+    ]
+  },
+  "sources": [
+    {
+      "id": "SRC-001",
+      "name": "Freelancer.com Project Search API",
+      "url": "https://developers.freelancer.com/",
+      "what_to_find": "Платные запросы по CRM/API и автоматизации",
+      "access_method": "OAuth2 SDK",
+      "access_verified": false,
+      "candidate_filters": [
+        "CRM",
+        "workflow automation",
+        "API integration"
+      ],
+      "state": "blocked_pending_permission",
+      "evidence_ids": [
+        "EV-001",
+        "EV-002",
+        "EV-003"
+      ],
+      "notes": "API существует, но OAuth2 и разрешение на хранение/автоматический доступ не подтверждены."
+    },
+    {
+      "id": "SRC-002",
+      "name": "Upwork Saved Job Searches",
+      "url": "https://support.upwork.com/hc/en-us/articles/211063078-How-to-search-for-jobs-on-Upwork",
+      "what_to_find": "Ручной поиск проектных заказов по интеграциям",
+      "access_method": "Поиск из аккаунта через UI",
+      "access_verified": false,
+      "candidate_filters": [
+        "API integration",
+        "workflow automation"
+      ],
+      "state": "ui_support_confirmed_account_unchecked",
+      "evidence_ids": [
+        "EV-005",
+        "EV-006"
+      ],
+      "notes": "RSS отключён; пользовательский доступ не проверялся."
+    }
+  ],
+  "research_action_proposals": [
+    {
+      "id": "RES-001",
+      "change": "create",
+      "target_action_id": null,
+      "title": "Проверка экономики коротких CRM/API-интеграций",
+      "reason": "Одиночные проекты указывают на потребность, но не подтверждают прибыльность.",
+      "suggested_changes": "Изучить несколько независимых клиентских требований, навыки, тестирование, поддержку и способ продемонстрировать качество.",
+      "evidence_ids": [
+        "EV-004"
+      ],
+      "status": "proposed"
+    }
+  ],
+  "monitoring_action_proposals": [
+    {
+      "id": "MON-001",
+      "change": "create",
+      "target_action_id": null,
+      "title": "Ручной мониторинг сохранённого поиска Upwork",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "reason": "Дешевле сначала подтвердить качество выдачи вручную, не создавая коннектор.",
+      "suggested_changes": "При наличии доступа сохранить один UI-поиск, проверить два раза и сравнить релевантность; не выдавать это за автоматический Run.",
+      "filters": [
+        "API integration",
+        "workflow automation"
+      ],
+      "period": "manual",
+      "signals": [
+        "relevant_new_items"
+      ],
+      "evidence_ids": [
+        "EV-005",
+        "EV-006"
+      ],
+      "status": "proposed"
+    },
+    {
+      "id": "MON-002",
+      "change": "create",
+      "target_action_id": null,
+      "title": "Freelancer API мониторинг — отложить",
+      "source_ids": [
+        "SRC-001"
+      ],
+      "reason": "Нужно подтвердить лицензию, права и сроки хранения, прежде чем делать архив.",
+      "suggested_changes": "Вернуться после законного OAuth2-доступа, проверенных лимитов и разрешения на сохранение результатов.",
+      "filters": [
+        "API integration"
+      ],
+      "period": "not_scheduled",
+      "signals": [
+        "new_projects_if_permitted"
+      ],
+      "evidence_ids": [
+        "EV-001",
+        "EV-002",
+        "EV-003"
+      ],
+      "status": "proposed"
+    }
+  ],
+  "overview": {
+    "summary": "SRC-001 имеет API поиска проектов, но доступность и допустимость регулярного долговременного сохранения для нас не подтверждены. Есть признаки спроса на CRM/API интеграции, но нет статистики, позволяющей оценить выгоду. Быстрая альтернатива: вручную проверить Saved Searches Upwork, если есть разрешённый аккаунт.",
+    "recommended_focus": [
+      "Сохранять гипотезу узких API/CRM-интеграций",
+      "Не строить Freelancer скрейпер или архив до проверки лицензии",
+      "Для первого пилота предпочесть разрешённый ручной поиск"
+    ],
+    "defer": [
+      "Коннектор Freelancer, автоматический Scheduler и постоянная база объявлений",
+      "Новый Monitoring Action до решения о проверяемом источнике"
+    ],
+    "next_decisions": [
+      "Приостановить ли SRC-001 до подтверждения доступа и хранения?",
+      "Провести ли ручной тест SRC-002 по MON-001?",
+      "Нужно ли отдельное RES-001?"
+    ],
+    "uncertainties": [
+      "Нет OAuth2, точных API лимитов и согласованного права хранения",
+      "Нет пользовательского доступа Upwork или повторного поиска",
+      "Нет проверенной экономики отдельных услуг"
+    ],
+    "evidence_ids": [
+      "EV-001",
+      "EV-002",
+      "EV-003",
+      "EV-004",
+      "EV-005",
+      "EV-006"
+    ]
+  },
+  "evidence": [
+    {
+      "id": "EV-001",
+      "url": "https://github.com/freelancer/freelancer-sdk-python",
+      "checked_on": "2026-11-10",
+      "observation": "Официальный SDK поддерживает поиск проектов; нужен OAuth2.",
+      "limitations": "Реальный токен и права не проверены."
+    },
+    {
+      "id": "EV-002",
+      "url": "https://www.freelancer.com/about/apiterms",
+      "checked_on": "2026-11-10",
+      "observation": "API Terms ограничивают хранение Data; кэш следует обновлять не реже каждых 24 часов.",
+      "limitations": "Точное допустимое применение нашего архива не подтверждено."
+    },
+    {
+      "id": "EV-003",
+      "url": "https://www.freelancer.com/about/terms",
+      "checked_on": "2026-11-10",
+      "observation": "User Agreement §33 ограничивает автоматический доступ без письменного разрешения.",
+      "limitations": "Условия авторизованного API требуют отдельного уточнения."
+    },
+    {
+      "id": "EV-004",
+      "url": "https://www.freelancer.com/projects/api-integration/api-integration-calendly-outlook-crm",
+      "checked_on": "2026-11-10",
+      "observation": "Публичная карточка с потребностью в API/CRM-интеграции.",
+      "limitations": "Один пример; актуальность и доступность впоследствии неизвестны."
+    },
+    {
+      "id": "EV-005",
+      "url": "https://support.upwork.com/hc/en-us/articles/211063078-How-to-search-for-jobs-on-Upwork",
+      "checked_on": "2026-11-10",
+      "observation": "Официально поддержаны сохранённые поиски в UI Upwork.",
+      "limitations": "Аккаунт пользователя не проверен."
+    },
+    {
+      "id": "EV-006",
+      "url": "https://support.upwork.com/hc/en-us/articles/52052528243731-RSS-deprecation",
+      "checked_on": "2026-11-10",
+      "observation": "RSS заказов отключён с августа 2024.",
+      "limitations": "Это не даёт альтернативного API."
+    }
+  ]
+}
