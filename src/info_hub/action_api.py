@@ -26,10 +26,16 @@ class ActionVersionCreate(ActionCreate):
     expected_version: int = Field(ge=1)
 
 
-def _action_summary(action: Action) -> dict:
+def _version_category(version: ActionVersion) -> str:
+    # Historic JSONB snapshots predate category. They stay immutable.
+    return version.definition.get("category", "general")
+
+
+def _action_summary(action: Action, version: ActionVersion) -> dict:
     return {
         "id": action.id,
         "name": action.name,
+        "category": _version_category(version),
         "current_version_number": action.current_version_number,
         "created_at": action.created_at,
         "updated_at": action.updated_at,
@@ -43,6 +49,7 @@ def _version_detail(
         "id": version.id,
         "action_id": version.action_id,
         "version_number": version.version_number,
+        "category": _version_category(version),
         "definition_yaml": version.source_yaml,
         "definition": version.definition,
         "created_at": version.created_at,
@@ -55,7 +62,7 @@ def _action_detail(
     action: Action, version: ActionVersion, *, schedule_active: bool = False,
 ) -> dict:
     return {
-        **_action_summary(action),
+        **_action_summary(action, version),
         "current_version": _version_detail(version, schedule_active=schedule_active),
     }
 
@@ -89,8 +96,20 @@ def list_actions(
     limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    actions = session.scalars(select(Action).order_by(Action.id).offset(offset).limit(limit))
-    return [_action_summary(action) for action in actions]
+    # Join only the current immutable version; do not load full version history.
+    statement = (
+        select(Action, ActionVersion)
+        .join(
+            ActionVersion,
+            (ActionVersion.action_id == Action.id)
+            & (ActionVersion.version_number == Action.current_version_number),
+        )
+        .order_by(Action.id).offset(offset).limit(limit)
+    )
+    return [
+        _action_summary(action, version)
+        for action, version in session.execute(statement)
+    ]
 
 
 @router.get("/actions/{action_id}")
