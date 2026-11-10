@@ -1,0 +1,253 @@
+{
+ "metadata": {
+  "report_id": "action4-v1-2026-11-10-initial01",
+  "action_id": 4,
+  "action_version": 1,
+  "run_key": "initial01",
+  "observed_on": "2026-11-10",
+  "execution_mode": "external_ai_manual",
+  "previous_run_ref": null,
+  "search_window": "Selected public Upwork listings posted 2026-11-03..2026-11-09",
+  "search_topics": [
+   "API integration",
+   "CRM automation",
+   "workflow automation",
+   "React integrations",
+   "AI app audit"
+  ],
+  "source_scope": [
+   "Upwork public job pages via web search"
+  ],
+  "limitations": [
+   "Не репрезентативная выборка и не статистика рынка",
+   "Прямой авторизованный отклик не проверен",
+   "Для нескольких ссылок доступен только текст поисковой выдачи, direct open не подтверждён",
+   "Нет предыдущего отчёта для определения новизны",
+   "Не создан ActionRun в Core",
+   "Файл пока только в локальной task-ветке, не в main"
+  ]
+ },
+ "findings": [
+  {
+   "id": "FIND-001",
+   "platform": "Upwork",
+   "listing_id": "~022119052550147631506",
+   "listing_url": "https://www.upwork.com/freelance-jobs/apply/Automation-Developer-Needed-Fix-CRM-Lead-Processing-Workflow_~022119052550147631506/",
+   "title": "CRM field mapping bug fix",
+   "task_summary": "Исправить передачу полей лидов между API и CRM, проверить на тестовых данных.",
+   "budget": {
+    "amount": 20,
+    "currency": "USD",
+    "type": "fixed",
+    "published_not_paid": true
+   },
+   "posted_on": "2026-11-07",
+   "proof_level": "public_search_page_content",
+   "availability": "unknown",
+   "relevance": "narrow_low_budget",
+   "risks": [
+    "Результат относительно ясен; бюджет может не покрыть диагностику и проверку; 20–50 предложений."
+   ],
+   "evidence_ids": [
+    "EV-001"
+   ]
+  },
+  {
+   "id": "FIND-002",
+   "platform": "Upwork",
+   "listing_id": "~022119105962722180461",
+   "listing_url": "https://www.upwork.com/freelance-jobs/apply/Automation-Expert-Needed-Build-Business-Workflows_~022119105962722180461/",
+   "title": "AI/business workflow automation",
+   "task_summary": "Создать и проверить интеграции CRM, документов, AI и уведомлений с handover.",
+   "budget": {
+    "amount": 1500,
+    "currency": "USD",
+    "type": "fixed",
+    "published_not_paid": true
+   },
+   "posted_on": "2026-11-07",
+   "proof_level": "public_search_page_content",
+   "availability": "unknown",
+   "relevance": "complex_high_competition",
+   "risks": [
+    "Широкий объём, требуются n8n/Make/Zapier и доказанный опыт; более 50 предложений."
+   ],
+   "evidence_ids": [
+    "EV-002"
+   ]
+  },
+  {
+   "id": "FIND-003",
+   "platform": "Upwork",
+   "listing_id": "~022119025560020041069",
+   "listing_url": "https://www.upwork.com/freelance-jobs/apply/Senior-Full-Stack-Developer-Integration-Supabase-Python-React_~022119025560020041069/",
+   "title": "AI SaaS React/Python audit and completion",
+   "task_summary": "Отдельный платный аудит 200–500 USD; далее согласуемая доработка React/Python/AI приложения.",
+   "budget": {
+    "amount": 3000,
+    "currency": "USD",
+    "type": "fixed",
+    "published_not_paid": true
+   },
+   "posted_on": "2026-11-07",
+   "proof_level": "public_search_page_content",
+   "availability": "unknown",
+   "relevance": "paid_audit_opportunity",
+   "risks": [
+    "Экспертные требования Python/Supabase и NDA; 3000 USD — верхняя граница общего начального бюджета; более 50 предложений."
+   ],
+   "evidence_ids": [
+    "EV-003"
+   ]
+  },
+  {
+   "id": "FIND-004",
+   "platform": "Upwork",
+   "listing_id": "~022119010351225727378",
+   "listing_url": "https://www.upwork.com/freelance-jobs/apply/React-Next-Developer-Needed-for-Bug-Fixes-SEO-Optimization-Website-Improvements_~022119010351225727378/",
+   "title": "React/Next.js fixes and SEO",
+   "task_summary": "Исправления React, производительности, SEO и при необходимости API.",
+   "budget": {
+    "amount": 150,
+    "currency": "USD",
+    "type": "fixed",
+    "published_not_paid": true
+   },
+   "posted_on": "2026-11-07",
+   "proof_level": "public_search_page_content",
+   "availability": "unknown",
+   "relevance": "aligned_stack_broad_scope",
+   "risks": [
+    "Широкие требования за 150 USD; в карточке уже отмечен один hire; статус отклика неизвестен."
+   ],
+   "evidence_ids": [
+    "EV-004"
+   ]
+  },
+  {
+   "id": "FIND-005",
+   "platform": "Upwork",
+   "listing_id": "~022117633594936182304",
+   "listing_url": "https://www.upwork.com/freelance-jobs/apply/Automation-CRM-Integration-Audit-Claude-n8n-MCP-APIs_~022117633594936182304/",
+   "title": "AI/CRM integration audit",
+   "task_summary": "Оценить существующие CRM и AI-автоматизации, ошибки webhooks и связей.",
+   "budget": {
+    "amount": 20,
+    "currency": "USD",
+    "type": "fixed",
+    "published_not_paid": true
+   },
+   "posted_on": "2026-11-03",
+   "proof_level": "public_search_page_content",
+   "availability": "unknown",
+   "relevance": "audit_low_budget",
+   "risks": [
+    "Требуется специфический опыт n8n и CRM; 20 USD не доказывают экономическую привлекательность."
+   ],
+   "evidence_ids": [
+    "EV-005"
+   ]
+  },
+  {
+   "id": "FIND-006",
+   "platform": "Upwork",
+   "listing_id": "~022119730465613745999",
+   "listing_url": "https://www.upwork.com/freelance-jobs/apply/Build-outbound-engine_~022119730465613745999/",
+   "title": "Multi-client outbound workflow",
+   "task_summary": "Многоклиентская автоматизация outreach с CRM и несколькими внешними сервисами.",
+   "budget": {
+    "amount": 1500,
+    "currency": "USD",
+    "type": "fixed",
+    "published_not_paid": true
+   },
+   "posted_on": "2026-11-09",
+   "proof_level": "public_search_page_content",
+   "availability": "unknown",
+   "relevance": "large_scope_competitive",
+   "risks": [
+    "Заказчик оценивает 80–120 часов; много платформ, 20–50 предложений, пять интервью."
+   ],
+   "evidence_ids": [
+    "EV-006"
+   ]
+  }
+ ],
+ "changes": {
+  "mode": "baseline_only",
+  "previous_run_ref": null,
+  "new_items": null,
+  "changed_items": null,
+  "repeated_items": null,
+  "reason": "No previous comparable run. Observed listings are not proven new offers.",
+  "dedup_key": "platform plus listing_id (fallback canonical URL)"
+ },
+ "overview": {
+  "summary": "Наблюдаются узкие исправления CRM/API, платные аудиты и большие проекты автоматизации. Оплата на карточке не равна доходу; необходимо учитывать объём и опыт.",
+  "recurring_needs": [
+   "API-CRM field mapping",
+   "webhooks and error handling",
+   "AI workflow diagnostics",
+   "React SaaS stabilization",
+   "testing and documentation"
+  ],
+  "follow_up": [
+   "FIND-001: ясная проблема, но бюджет 20 USD",
+   "FIND-003: платный аудит 200–500 USD; нужны Python/Supabase и портфолио",
+   "FIND-004: React-релевантность, широкий объём и уже один hire"
+  ],
+  "low_priority": [
+   "FIND-005: 20 USD за аудит может быть невыгодно",
+   "FIND-006: 80–120 часов и высокая конкуренция"
+  ],
+  "next_decisions": [
+   "Для следующего наблюдения сузить фильтр: CRM/API bugfix или платные аудиты AI-приложений",
+   "Сравнить URL/ID и одинаковый охват при следующем ручном запуске",
+   "Не откликаться до проверки реальной доступности и условий"
+  ]
+ },
+ "evidence": [
+  {
+   "id": "EV-001",
+   "url": "https://www.upwork.com/freelance-jobs/apply/Automation-Developer-Needed-Fix-CRM-Lead-Processing-Workflow_~022119052550147631506/",
+   "observed_on": "2026-11-10",
+   "observation": "Публичная выдача описывает исправить передачу полей лидов между api и crm, проверить на тестовых данных. Указанный бюджет: 20 USD.",
+   "limitations": "Не подтверждены открытый статус отклика и полный текст в авторизованном аккаунте."
+  },
+  {
+   "id": "EV-002",
+   "url": "https://www.upwork.com/freelance-jobs/apply/Automation-Expert-Needed-Build-Business-Workflows_~022119105962722180461/",
+   "observed_on": "2026-11-10",
+   "observation": "Публичная выдача описывает создать и проверить интеграции crm, документов, ai и уведомлений с handover. Указанный бюджет: 1500 USD.",
+   "limitations": "Не подтверждены открытый статус отклика и полный текст в авторизованном аккаунте."
+  },
+  {
+   "id": "EV-003",
+   "url": "https://www.upwork.com/freelance-jobs/apply/Senior-Full-Stack-Developer-Integration-Supabase-Python-React_~022119025560020041069/",
+   "observed_on": "2026-11-10",
+   "observation": "Публичная выдача описывает отдельный платный аудит 200–500 usd; далее согласуемая доработка react/python/ai приложения. Указанный бюджет: 3000 USD.",
+   "limitations": "Не подтверждены открытый статус отклика и полный текст в авторизованном аккаунте."
+  },
+  {
+   "id": "EV-004",
+   "url": "https://www.upwork.com/freelance-jobs/apply/React-Next-Developer-Needed-for-Bug-Fixes-SEO-Optimization-Website-Improvements_~022119010351225727378/",
+   "observed_on": "2026-11-10",
+   "observation": "Публичная выдача описывает исправления react, производительности, seo и при необходимости api. Указанный бюджет: 150 USD.",
+   "limitations": "Не подтверждены открытый статус отклика и полный текст в авторизованном аккаунте."
+  },
+  {
+   "id": "EV-005",
+   "url": "https://www.upwork.com/freelance-jobs/apply/Automation-CRM-Integration-Audit-Claude-n8n-MCP-APIs_~022117633594936182304/",
+   "observed_on": "2026-11-10",
+   "observation": "Публичная выдача описывает оценить существующие crm и ai-автоматизации, ошибки webhooks и связей. Указанный бюджет: 20 USD.",
+   "limitations": "Не подтверждены открытый статус отклика и полный текст в авторизованном аккаунте."
+  },
+  {
+   "id": "EV-006",
+   "url": "https://www.upwork.com/freelance-jobs/apply/Build-outbound-engine_~022119730465613745999/",
+   "observed_on": "2026-11-10",
+   "observation": "Публичная выдача описывает многоклиентская автоматизация outreach с crm и несколькими внешними сервисами. Указанный бюджет: 1500 USD.",
+   "limitations": "Не подтверждены открытый статус отклика и полный текст в авторизованном аккаунте."
+  }
+ ]
+}
