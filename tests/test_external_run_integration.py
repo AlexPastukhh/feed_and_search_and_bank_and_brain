@@ -23,13 +23,17 @@ REF = "https://github.com/owner/repo/blob/abc123/report.json"
 
 def test_posthoc_idempotent_registration_without_broker(monkeypatch):
     from info_hub import external_run_auth
-    monkeypatch.setattr(external_run_auth, "get_settings", lambda: SimpleNamespace(
-        action_external_run_tokens=SecretStr(json.dumps(TOKENS)),
-    ))
     client = TestClient(app)
     created = client.post("/actions", json={"definition_yaml": DOC})
     assert created.status_code == 201, created.text
     action_id = created.json()["id"]
+    scoped = {
+        name: {"token": token, "action_ids": [action_id]}
+        for name, token in TOKENS.items()
+    }
+    monkeypatch.setattr(external_run_auth, "get_settings", lambda: SimpleNamespace(
+        action_external_run_tokens=SecretStr(json.dumps(scoped)),
+    ))
     url = f"/actions/{action_id}/external-runs"
     payload = dict(
         version_number=1, external_run_key="research-v1-result01",
@@ -39,6 +43,9 @@ def test_posthoc_idempotent_registration_without_broker(monkeypatch):
     auth = {"Authorization": "Bearer " + TOKENS["fortis-chatgpt"]}
     assert client.post(url, json=payload).status_code == 401
     assert client.post(url, json=payload, headers={"Authorization": "Bearer wrong"}).status_code == 403
+    assert client.post(
+        f"/actions/{action_id + 999999}/external-runs", json=payload, headers=auth,
+    ).status_code == 403
     first = client.post(url, json=payload, headers=auth)
     assert first.status_code == 201, first.text
     run_id = first.json()["id"]

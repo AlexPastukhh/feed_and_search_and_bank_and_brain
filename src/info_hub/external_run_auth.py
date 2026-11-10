@@ -8,7 +8,7 @@ from fastapi import HTTPException, Request
 from info_hub.settings import get_settings
 
 
-def authenticated_external_executor(request: Request) -> str:
+def authenticated_external_executor(request: Request, action_id: int) -> str:
     """Resolve executor ID from configured server-side credential, not the body.
 
     This protects only external-run registration. Other prototype API routes
@@ -23,11 +23,18 @@ def authenticated_external_executor(request: Request) -> str:
             raise ValueError("invalid map")
         valid = all(
             isinstance(who, str) and re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}", who)
-            and isinstance(secret, str) and 32 <= len(secret) <= 256
-            and secret.isascii() and not any(ch.isspace() for ch in secret)
-            for who, secret in credentials.items()
+            and isinstance(config, dict) and set(config) == {"token", "action_ids"}
+            and isinstance(config["token"], str)
+            and 32 <= len(config["token"]) <= 256
+            and config["token"].isascii()
+            and not any(ch.isspace() for ch in config["token"])
+            and isinstance(config["action_ids"], list)
+            and 1 <= len(config["action_ids"]) <= 100
+            and all(type(action) is int and action > 0 for action in config["action_ids"])
+            and len(set(config["action_ids"])) == len(config["action_ids"])
+            for who, config in credentials.items()
         )
-        if not valid or len(set(credentials.values())) != len(credentials):
+        if not valid or len({v["token"] for v in credentials.values()}) != len(credentials):
             raise ValueError("invalid credentials")
     except (ValueError, TypeError):
         # Do not print the invalid config or secrets.
@@ -45,9 +52,9 @@ def authenticated_external_executor(request: Request) -> str:
     if len(submitted) > 256 or not submitted.isascii() or any(ch.isspace() for ch in submitted):
         raise HTTPException(status_code=403, detail="Executor credential denied")
     matches = [
-        executor for executor, secret in credentials.items()
-        if hmac.compare_digest(submitted, secret)
+        executor for executor, config in credentials.items()
+        if hmac.compare_digest(submitted, config["token"])
     ]
-    if len(matches) != 1:
+    if len(matches) != 1 or action_id not in credentials[matches[0]]["action_ids"]:
         raise HTTPException(status_code=403, detail="Executor credential denied")
     return matches[0]

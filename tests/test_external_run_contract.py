@@ -43,7 +43,7 @@ def test_registration_disabled_by_default(monkeypatch):
         lambda: SimpleNamespace(action_external_run_tokens=SecretStr("")),
     )
     with pytest.raises(HTTPException) as exc:
-        authenticated_external_executor(_request("Bearer " + EXECUTORS["fortis-chatgpt"]))
+        authenticated_external_executor(_request("Bearer " + EXECUTORS["fortis-chatgpt"]), 3)
     assert exc.value.status_code == 503
 
 
@@ -52,14 +52,17 @@ def test_executor_identity_is_bound_to_secret(monkeypatch):
     monkeypatch.setattr(
         external_run_auth, "get_settings",
         lambda: SimpleNamespace(
-            action_external_run_tokens=SecretStr(json.dumps(EXECUTORS)),
+            action_external_run_tokens=SecretStr(json.dumps({
+                name: {"token": token, "action_ids": [3]}
+                for name, token in EXECUTORS.items()
+            })),
         ),
     )
     assert authenticated_external_executor(
-        _request("Bearer " + EXECUTORS["fortis-chatgpt"])
+        _request("Bearer " + EXECUTORS["fortis-chatgpt"]), 3
     ) == "fortis-chatgpt"
     assert authenticated_external_executor(
-        _request("Bearer " + EXECUTORS["other-ai"])
+        _request("Bearer " + EXECUTORS["other-ai"]), 3
     ) == "other-ai"
     for header, expected in [
         ("", 401),
@@ -67,8 +70,13 @@ def test_executor_identity_is_bound_to_secret(monkeypatch):
         ("Basic " + EXECUTORS["fortis-chatgpt"], 401),
     ]:
         with pytest.raises(HTTPException) as exc:
-            authenticated_external_executor(_request(header))
+            authenticated_external_executor(_request(header), 3)
         assert exc.value.status_code == expected
+    with pytest.raises(HTTPException) as scoped:
+        authenticated_external_executor(
+            _request("Bearer " + EXECUTORS["fortis-chatgpt"]), 4,
+        )
+    assert scoped.value.status_code == 403
 
 
 @pytest.mark.parametrize("bad", [
