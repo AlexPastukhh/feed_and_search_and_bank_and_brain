@@ -13,6 +13,7 @@ STEP_ID_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
 CAPABILITY_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 PARAMETER_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 TOOL_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
+CATEGORY_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
 
 
 class WorkflowValidationError(ValueError):
@@ -81,12 +82,16 @@ def validate_action_document(document: Any) -> dict[str, Any]:
     root = _mapping(document, "action")
     _keys(
         root, required={"name", "instruction"},
-        allowed={"name", "instruction", "workflow", "schedule"}, location="action",
+        allowed={"name", "category", "instruction", "workflow", "schedule"}, location="action",
     )
     name = _text(root["name"], "name", maximum=200).strip()
     instruction = _text(root["instruction"], "instruction")
+    category = root.get("category", "general")
+    if not isinstance(category, str) or not CATEGORY_PATTERN.fullmatch(category):
+        raise WorkflowValidationError("category must be a lowercase identifier (max 64 chars)")
     result: dict[str, Any] = {
-        "name": name, "instruction": instruction, "workflow": None, "schedule": None,
+        "name": name, "category": category, "instruction": instruction,
+        "workflow": None, "schedule": None,
     }
 
     if "workflow" in root:

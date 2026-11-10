@@ -35,8 +35,27 @@ class ActionDocumentTests(unittest.TestCase):
     def test_accepts_minimal_instruction_only(self):
         doc = validate_action_document({"name": "Study", "instruction": "Study news"})
         self.assertEqual(doc["name"], "Study")
+        self.assertEqual(doc["category"], "general")
         self.assertIsNone(doc["workflow"])
         self.assertIsNone(doc["schedule"])
+
+    def test_accepts_extensible_semantic_categories(self):
+        for category in ("research", "monitoring", "general", "future_kind"):
+            with self.subTest(category=category):
+                doc = validate_action_document({
+                    "name": "Study", "category": category, "instruction": "Work",
+                })
+                self.assertEqual(doc["category"], category)
+                self.assertIsNone(doc["workflow"])
+
+    def test_rejects_invalid_category(self):
+        for category in (None, True, 12, "", "Research", "has spaces",
+                         "a/b", "a" * 65):
+            with self.subTest(category=category):
+                with self.assertRaisesRegex(WorkflowValidationError, "category"):
+                    validate_action_document({
+                        "name": "Study", "category": category, "instruction": "Work",
+                    })
 
     def test_accepts_example_and_preserves_meaning(self):
         doc = validate_action_document(sample_action())
@@ -246,6 +265,13 @@ schedule:
     def test_parses_instruction_only(self):
         doc = parse_action_yaml("name: Research\ninstruction: Research the topic\n")
         self.assertIsNone(doc["workflow"])
+        self.assertEqual(doc["category"], "general")
+
+    def test_parses_explicit_category(self):
+        doc = parse_action_yaml(
+            "name: Study\ncategory: research\ninstruction: Investigate\n"
+        )
+        self.assertEqual(doc["category"], "research")
 
     def test_rejects_duplicate_yaml_keys(self):
         raw = "name: one\nname: two\ninstruction: Work\n"

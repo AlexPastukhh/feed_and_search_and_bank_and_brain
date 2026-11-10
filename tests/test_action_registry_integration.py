@@ -38,6 +38,7 @@ schedule:
 
 SECOND_YAML = """\
 name: Refresh selected publications
+category: monitoring
 instruction: |
   Check new publications and prepare a summary for later analysis.
 workflow:
@@ -60,9 +61,12 @@ def test_action_registry_version_history_and_immutable_database():
     assert created.status_code == 201, created.text
     action_id = created.json()["id"]
     assert created.json()["name"] == "Read the RSS archive"
+    assert created.json()["category"] == "general"
     assert created.json()["current_version_number"] == 1
     first = created.json()["current_version"]
     assert first["definition_yaml"] == FIRST_YAML
+    assert first["category"] == "general"
+    assert first["definition"]["category"] == "general"
     assert (
         first["definition"]["workflow"]["steps"][0]["with"]["source"]
         == {"type": "subscription", "id": 11}
@@ -72,7 +76,7 @@ def test_action_registry_version_history_and_immutable_database():
 
     listed = client.get("/actions", params={"limit": 100})
     assert listed.status_code == 200
-    assert any(item["id"] == action_id for item in listed.json())
+    assert any(item["id"] == action_id and item["category"] == "general" for item in listed.json())
 
     detail = client.get(f"/actions/{action_id}")
     assert detail.status_code == 200
@@ -85,20 +89,26 @@ def test_action_registry_version_history_and_immutable_database():
     assert newer.status_code == 201, newer.text
     assert newer.json()["name"] == "Refresh selected publications"
     assert newer.json()["current_version_number"] == 2
+    assert newer.json()["category"] == "monitoring"
+    assert newer.json()["current_version"]["definition"]["category"] == "monitoring"
 
     versions = client.get(f"/actions/{action_id}/versions")
     assert versions.status_code == 200
     assert [v["version_number"] for v in versions.json()] == [2, 1]
+    assert [v["category"] for v in versions.json()] == ["monitoring", "general"]
+    assert next(x for x in client.get("/actions").json() if x["id"] == action_id)["category"] == "monitoring"
 
     original = client.get(f"/actions/{action_id}/versions/1")
     assert original.status_code == 200
     assert original.json()["definition_yaml"] == FIRST_YAML
+    assert original.json()["category"] == "general"
     assert original.json()["definition"]["schedule"] == {"every_minutes": 60}
     assert original.json()["schedule_active"] is False
 
     newest = client.get(f"/actions/{action_id}/versions/2")
     assert newest.status_code == 200
     assert newest.json()["definition_yaml"] == SECOND_YAML
+    assert newest.json()["category"] == "monitoring"
     assert newest.json()["definition"]["schedule"] is None
 
     # Stale editors cannot overwrite the current version or create a third one.
@@ -134,6 +144,7 @@ def test_action_registry_errors_and_instruction_only_action():
     assert no_workflow.status_code == 201
     action_id = no_workflow.json()["id"]
     assert no_workflow.json()["current_version"]["definition"]["workflow"] is None
+    assert no_workflow.json()["category"] == "general"
 
     bad = client.post("/actions", json={
         "definition_yaml": "name: A\nname: B\ninstruction: Work\n",
