@@ -12,6 +12,8 @@
 | [PROJECT.md](docs/PROJECT.md) | Проверенное состояние и датированная история решений/проверок |
 | [BACKLOG-IMPROVEMENTS.md](docs/BACKLOG-IMPROVEMENTS.md) | Единый список открытых задач и условных улучшений |
 | [ACTION-CORE.md](docs/ACTION-CORE.md) | Первая рабочая версия: простой YAML, Broker → Feedbrain, история и расписание |
+| [EXECUTION-MODES.md](docs/EXECUTION-MODES.md) | Независимые от категории режимы выполнения: External AI, Programmatic, Managed AI |
+| [EXTERNAL-AI-RUN-REGISTRATION.md](docs/EXTERNAL-AI-RUN-REGISTRATION.md) | Регистрация завершённого внешнего Run; исходники, права, тесты и граница Windows runtime |
 | [Use Cases](docs/use-cases/README.md) | Повторяемые способы работы с Actions: от AI-инструкции до программного мониторинга, фида и ожидания действия |
 | [SECURITY.md](docs/SECURITY.md) | Сетевая доступность, текущие риски и необходимые permissions |
 | [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Локальный запуск, тесты, Git workflow, CI |
@@ -25,7 +27,7 @@ Python/FastAPI + PostgreSQL 16 + worker + Alembic в Docker Compose. RSS/Atom-п
 
 HTTP API позволяет читать источники, публикации и результаты поиска. Через Fortis Repo доступ к этому API на Windows Docker Desktop уже был проверен. Это **не MCP-сервер** и **не встроенный AI**: внешний AI может вызывать HTTP API средствами своих инструментов. Другие сервисы и внешние поисковые инструменты можно использовать напрямую, без Feedbrain.
 
-**API пока не имеет аутентификации и прав доступа**, поэтому предназначен только для локального доверенного окружения. Подробнее — [SECURITY.md](docs/SECURITY.md).
+**Основные маршруты API пока не имеют общей аутентификации и прав доступа**, поэтому предназначены только для локального доверенного окружения. В принятом коде External AI Run имеет отдельную отключённую по умолчанию проверку полномочий; на Windows этот маршрут ещё не развёрнут. Подробнее — [SECURITY.md](docs/SECURITY.md).
 
 ## Запуск
 
