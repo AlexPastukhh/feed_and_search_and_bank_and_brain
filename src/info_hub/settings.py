@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     database_url: str
     log_level: str = "INFO"
     action_feedbrain_url: str = "http://api:8000"
-    # Optional JSON executor -> {token, action_ids}; disabled by default.
+    # Optional JSON list of action-scoped token grants, without executor IDs.
     # Disabled until explicitly provisioned on the trusted API host.
     action_external_run_tokens: SecretStr = SecretStr("")
 

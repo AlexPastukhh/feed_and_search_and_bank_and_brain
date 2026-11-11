@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError
 
 from info_hub.action_models import ActionVersion
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.skipif(
     reason="Never use a persistent Windows PostgreSQL database for these tests",
 )
 DOC = "name: AI report\ncategory: research\ninstruction: Gather evidence\n"
-TOKENS = {"fortis-chatgpt": "a" * 48, "second-ai": "b" * 48}
+TOKENS = ["a" * 48, "b" * 48]
 REF = "https://github.com/owner/repo/blob/abc123/report.json"
 
 
@@ -29,10 +29,9 @@ def test_posthoc_idempotent_registration_without_broker(monkeypatch):
     created = client.post("/actions", json={"definition_yaml": DOC})
     assert created.status_code == 201, created.text
     action_id = created.json()["id"]
-    scoped = {
-        name: {"token": token, "action_ids": [action_id]}
-        for name, token in TOKENS.items()
-    }
+    scoped = [
+        {"token": token, "action_ids": [action_id]} for token in TOKENS
+    ]
     monkeypatch.setattr(external_run_auth, "get_settings", lambda: SimpleNamespace(
         action_external_run_tokens=SecretStr(json.dumps(scoped)),
     ))
@@ -42,7 +41,7 @@ def test_posthoc_idempotent_registration_without_broker(monkeypatch):
         initiated_by="user", status="completed", summary="Evidence archived",
         output_refs=[REF], storage_status="reported_saved",
     )
-    auth = {"Authorization": "Bearer " + TOKENS["fortis-chatgpt"]}
+    auth = {"Authorization": "Bearer " + TOKENS[0]}
     assert client.post(url, json=payload).status_code == 401
     assert client.post(url, json=payload, headers={"Authorization": "Bearer wrong"}).status_code == 403
     assert client.post(
@@ -52,7 +51,7 @@ def test_posthoc_idempotent_registration_without_broker(monkeypatch):
     assert first.status_code == 201, first.text
     run_id = first.json()["id"]
     assert first.json()["execution_kind"] == "external_ai"
-    assert first.json()["executor_id"] == "fortis-chatgpt"
+    assert "executor_id" not in first.json()
     assert first.json()["steps"] == []
     assert first.json()["started_at"] is None
     assert first.json()["result"]["details"]["storage_evidence"] == "executor_reported"
@@ -61,9 +60,16 @@ def test_posthoc_idempotent_registration_without_broker(monkeypatch):
     assert client.post(
         url, json={**payload, "summary": "overwrite"}, headers=auth,
     ).status_code == 409
-    assert client.post(
+    alternate_grant = client.post(
         url, json=payload,
-        headers={"Authorization": "Bearer " + TOKENS["second-ai"]},
+        headers={"Authorization": "Bearer " + TOKENS[1]},
+    )
+    assert alternate_grant.status_code == 200
+    assert alternate_grant.json()["id"] == run_id
+    assert "executor_id" not in alternate_grant.json()
+    assert client.post(
+        url, json={**payload, "summary": "overwrite from another grant"},
+        headers={"Authorization": "Bearer " + TOKENS[1]},
     ).status_code == 409
     assert client.post(
         url, json={**payload, "version_number": 999}, headers=auth,
@@ -71,12 +77,18 @@ def test_posthoc_idempotent_registration_without_broker(monkeypatch):
     listing = client.get(f"/actions/{action_id}/runs")
     assert listing.status_code == 200
     assert [r["id"] for r in listing.json()] == [run_id]
-    assert client.get(f"/action-runs/{run_id}").json()["steps"] == []
+    assert "executor_id" not in listing.json()[0]
+    detail = client.get(f"/action-runs/{run_id}").json()
+    assert detail["steps"] == []
+    assert "executor_id" not in detail
     with open_session() as session:
         rows = session.scalars(
             select(ActionRun).where(ActionRun.action_id == action_id)
         ).all()
         assert len(rows) == 1 and rows[0].status == "completed"
+        assert "executor_id" not in {
+            column["name"] for column in inspect(session.bind).get_columns("action_runs")
+        }
         assert session.scalars(
             select(ActionStepRun).where(ActionStepRun.action_run_id == run_id)
         ).all() == []
@@ -90,8 +102,7 @@ def test_failed_external_run_and_worker_queue_guard(monkeypatch):
     created = client.post("/actions", json={"definition_yaml": DOC})
     assert created.status_code == 201, created.text
     action_id = created.json()["id"]
-    config = {"fortis-chatgpt": {"token": TOKENS["fortis-chatgpt"],
-                                "action_ids": [action_id]}}
+    config = [{"token": TOKENS[0], "action_ids": [action_id]}]
     monkeypatch.setattr(external_run_auth, "get_settings", lambda: SimpleNamespace(
         action_external_run_tokens=SecretStr(json.dumps(config)),
     ))
@@ -103,7 +114,7 @@ def test_failed_external_run_and_worker_queue_guard(monkeypatch):
     )
     response = client.post(
         f"/actions/{action_id}/external-runs", json=payload,
-        headers={"Authorization": "Bearer " + TOKENS["fortis-chatgpt"]},
+        headers={"Authorization": "Bearer " + TOKENS[0]},
     )
     assert response.status_code == 201, response.text
     result = response.json()
@@ -121,7 +132,7 @@ def test_failed_external_run_and_worker_queue_guard(monkeypatch):
         illegal = ActionRun(
             action_id=action_id, action_version_id=version_id,
             status="queued", initiated_by="ai", execution_kind="external_ai",
-            executor_id="fortis-chatgpt", external_run_key="illegal-queued-run",
+            external_run_key="illegal-queued-run",
             registration_fingerprint="f" * 64,
         )
         session.add(illegal)

@@ -9,9 +9,9 @@ from pydantic import SecretStr, ValidationError
 from starlette.requests import Request
 
 from info_hub.action_run_api import ExternalRunCreate
-from info_hub.external_run_auth import authenticated_external_executor
+from info_hub.external_run_auth import authorize_external_run
 
-EXECUTORS = {"fortis-chatgpt": "a" * 48, "other-ai": "b" * 48}
+TOKENS = ["a" * 48, "b" * 48]
 REF = "https://github.com/owner/repo/blob/abc123/docs/report.json"
 
 
@@ -43,38 +43,33 @@ def test_registration_disabled_by_default(monkeypatch):
         lambda: SimpleNamespace(action_external_run_tokens=SecretStr("")),
     )
     with pytest.raises(HTTPException) as exc:
-        authenticated_external_executor(_request("Bearer " + EXECUTORS["fortis-chatgpt"]), 3)
+        authorize_external_run(_request("Bearer " + TOKENS[0]), 3)
     assert exc.value.status_code == 503
 
 
-def test_executor_identity_is_bound_to_secret(monkeypatch):
+def test_anonymous_action_scoped_authorization(monkeypatch):
     from info_hub import external_run_auth
     monkeypatch.setattr(
         external_run_auth, "get_settings",
         lambda: SimpleNamespace(
-            action_external_run_tokens=SecretStr(json.dumps({
-                name: {"token": token, "action_ids": [3]}
-                for name, token in EXECUTORS.items()
-            })),
+            action_external_run_tokens=SecretStr(json.dumps([
+                {"token": token, "action_ids": [3]} for token in TOKENS
+            ])),
         ),
     )
-    assert authenticated_external_executor(
-        _request("Bearer " + EXECUTORS["fortis-chatgpt"]), 3
-    ) == "fortis-chatgpt"
-    assert authenticated_external_executor(
-        _request("Bearer " + EXECUTORS["other-ai"]), 3
-    ) == "other-ai"
+    assert authorize_external_run(_request("Bearer " + TOKENS[0]), 3) is None
+    assert authorize_external_run(_request("Bearer " + TOKENS[1]), 3) is None
     for header, expected in [
         ("", 401),
         ("Bearer wrong", 403),
-        ("Basic " + EXECUTORS["fortis-chatgpt"], 401),
+        ("Basic " + TOKENS[0], 401),
     ]:
         with pytest.raises(HTTPException) as exc:
-            authenticated_external_executor(_request(header), 3)
+            authorize_external_run(_request(header), 3)
         assert exc.value.status_code == expected
     with pytest.raises(HTTPException) as scoped:
-        authenticated_external_executor(
-            _request("Bearer " + EXECUTORS["fortis-chatgpt"]), 4,
+        authorize_external_run(
+            _request("Bearer " + TOKENS[0]), 4,
         )
     assert scoped.value.status_code == 403
 
@@ -109,3 +104,27 @@ def test_known_and_unknown_timestamps_are_not_fabricated():
     )
     assert record.finished_at is None
     assert record.started_at.tzinfo is not None
+
+
+
+def test_named_executor_config_rejected(monkeypatch):
+    from info_hub import external_run_auth
+    old = {"named-executor": {"token": TOKENS[0], "action_ids": [3]}}
+    monkeypatch.setattr(external_run_auth, "get_settings", lambda: SimpleNamespace(
+        action_external_run_tokens=SecretStr(json.dumps(old)),
+    ))
+    with pytest.raises(HTTPException) as exc:
+        authorize_external_run(_request("Bearer " + TOKENS[0]), 3)
+    assert exc.value.status_code == 503
+
+
+def test_duplicate_grants_rejected(monkeypatch):
+    from info_hub import external_run_auth
+    duplicate = [{"token": TOKENS[0], "action_ids": [3]},
+                 {"token": TOKENS[0], "action_ids": [4]}]
+    monkeypatch.setattr(external_run_auth, "get_settings", lambda: SimpleNamespace(
+        action_external_run_tokens=SecretStr(json.dumps(duplicate)),
+    ))
+    with pytest.raises(HTTPException) as exc:
+        authorize_external_run(_request("Bearer " + TOKENS[0]), 3)
+    assert exc.value.status_code == 503

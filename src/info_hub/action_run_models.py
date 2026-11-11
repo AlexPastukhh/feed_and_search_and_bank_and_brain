@@ -34,7 +34,7 @@ class ActionRun(Base):
             "(execution_kind = 'external_ai' AND "
             "status IN ('completed', 'failed', 'interrupted') "
             "AND external_run_key IS NOT NULL AND "
-            "registration_fingerprint IS NOT NULL AND executor_id IS NOT NULL)",
+            "registration_fingerprint IS NOT NULL)",
             name="ck_action_runs_external_terminal",
         ),
     )
@@ -50,8 +50,7 @@ class ActionRun(Base):
     execution_kind: Mapped[str] = mapped_column(
         String(24), nullable=False, default="programmatic",
     )
-    # Identity is derived from the authenticated registration credential.
-    executor_id: Mapped[str | None] = mapped_column(String(100))
+    # An external run key identifies the execution, not who performed it.
     external_run_key: Mapped[str | None] = mapped_column(String(160))
     registration_fingerprint: Mapped[str | None] = mapped_column(String(64))
     error_code: Mapped[str | None] = mapped_column(String(80))

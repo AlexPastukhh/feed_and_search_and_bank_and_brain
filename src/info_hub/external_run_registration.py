@@ -16,7 +16,7 @@ from info_hub.action_services import get_action_version
 
 def register_external_run(
     session: Session, *, action_id: int, version_number: int,
-    external_run_key: str, executor_id: str, initiated_by: str,
+    external_run_key: str, initiated_by: str,
     status: str, summary: str, started_at: datetime | None,
     finished_at: datetime | None, output_refs: list[str],
     storage_status: str, registration_fingerprint: str,
@@ -46,15 +46,14 @@ def register_external_run(
     )
     if existing is not None:
         if (existing.execution_kind != "external_ai"
-                or existing.registration_fingerprint != registration_fingerprint
-                or existing.executor_id != executor_id):
+                or existing.registration_fingerprint != registration_fingerprint):
             raise RunConflict("External run key already registered with different data")
         return existing, False
 
     record = ActionRun(
         action_id=action_id, action_version_id=version.id,
         status=status, initiated_by=initiated_by, execution_kind="external_ai",
-        executor_id=executor_id, external_run_key=external_run_key,
+        external_run_key=external_run_key,
         registration_fingerprint=registration_fingerprint,
         started_at=started_at, finished_at=finished_at,
         error_code=error_code,
