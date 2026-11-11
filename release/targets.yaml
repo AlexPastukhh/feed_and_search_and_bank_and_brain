@@ -71,3 +71,4 @@ noDeploymentPaths:
   - AGENTS.md
   - .gitignore
   - .gitattributes
+  - .github/**
