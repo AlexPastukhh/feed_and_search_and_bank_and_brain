@@ -2,7 +2,14 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Boolean, Computed, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint,
+    Boolean,
+    Computed,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship

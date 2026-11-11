@@ -6,7 +6,12 @@ from sqlalchemy.orm import Session
 
 from info_hub.db import get_session
 from info_hub.models import (
-    IngestionRun, Resource, ResourceVersion, Source, Subscription, SubscriptionResource,
+    IngestionRun,
+    Resource,
+    ResourceVersion,
+    Source,
+    Subscription,
+    SubscriptionResource,
 )
 from info_hub.services import create_source, create_subscription, queue_sync
 

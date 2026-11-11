@@ -11,8 +11,13 @@ from info_hub.contracts import ConnectorItem
 from info_hub.db import open_session
 from info_hub.fetch import validate_feed_url
 from info_hub.models import (
-    IngestionRun, Resource, ResourceVersion, Source, Subscription,
-    SubscriptionResource, utc_now,
+    IngestionRun,
+    Resource,
+    ResourceVersion,
+    Source,
+    Subscription,
+    SubscriptionResource,
+    utc_now,
 )
 
 logger = logging.getLogger(__name__)

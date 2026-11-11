@@ -6,10 +6,12 @@ import threading
 from sqlalchemy.exc import SQLAlchemyError
 
 from info_hub.action_broker import configured_broker
-from info_hub.action_schedule_services import enqueue_due_action_schedules
 from info_hub.action_run_services import (
-    claim_next_action_run, process_action_run, recover_abandoned_action_runs,
+    claim_next_action_run,
+    process_action_run,
+    recover_abandoned_action_runs,
 )
+from info_hub.action_schedule_services import enqueue_due_action_schedules
 from info_hub.settings import get_settings
 
 logging.basicConfig(

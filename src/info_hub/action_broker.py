@@ -8,7 +8,8 @@ from typing import Any, Protocol
 from urllib.parse import parse_qsl, urlsplit
 
 from info_hub.action_workflow import (
-    WorkflowValidationError, require_executable_workflow,
+    WorkflowValidationError,
+    require_executable_workflow,
 )
 
 # History is an execution receipt, not an unbounded copy of tool-owned data.

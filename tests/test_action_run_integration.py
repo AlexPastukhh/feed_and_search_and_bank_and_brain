@@ -13,7 +13,9 @@ from info_hub.action_broker import CapabilityBroker
 from info_hub.action_models import utc_now
 from info_hub.action_run_models import ActionRun, ActionStepRun
 from info_hub.action_run_services import (
-    claim_next_action_run, process_action_run, recover_abandoned_action_runs,
+    claim_next_action_run,
+    process_action_run,
+    recover_abandoned_action_runs,
 )
 from info_hub.db import open_session
 from info_hub.feedbrain_adapter import FeedbrainSyncAdapter

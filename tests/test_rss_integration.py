@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from info_hub.db import open_session
 from info_hub.main import app
-from info_hub.models import IngestionRun, ResourceVersion
+from info_hub.models import ResourceVersion
 from info_hub.services import claim_next_run, process_run
 from tests.test_feeds import RSS
 

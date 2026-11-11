@@ -6,8 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from info_hub.action_broker import (
-    CapabilityBroker, ToolExecutionError, safe_error_code,
-    safe_error_external_ref, safe_error_message,
+    CapabilityBroker,
+    ToolExecutionError,
+    safe_error_code,
+    safe_error_external_ref,
+    safe_error_message,
 )
 from info_hub.action_models import Action, ActionVersion, utc_now
 from info_hub.action_run_models import ActionResult, ActionRun, ActionStepRun

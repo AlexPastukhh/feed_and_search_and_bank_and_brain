@@ -7,7 +7,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from info_hub.content_services import backfill_missing_chunks
 from info_hub.services import (
-    claim_next_run, process_run, queue_due_subscriptions, recover_abandoned_runs,
+    claim_next_run,
+    process_run,
+    queue_due_subscriptions,
+    recover_abandoned_runs,
 )
 from info_hub.settings import get_settings
 

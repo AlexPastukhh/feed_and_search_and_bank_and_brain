@@ -4,8 +4,9 @@ Revision ID: 20261104_0003
 Revises: 20261104_0002
 """
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects.postgresql import TSVECTOR
+
+from alembic import op
 
 revision = "20261104_0003"
 down_revision = "20261104_0002"
