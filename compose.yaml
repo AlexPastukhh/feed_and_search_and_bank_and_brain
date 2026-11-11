@@ -12,6 +12,7 @@ x-app-image: &app-image
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-feedbrain}
       POSTGRES_DB: ${POSTGRES_DB:-feedbrain}
@@ -44,7 +45,8 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      # Unlike /health/live, /health/ready verifies PostgreSQL access.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 6

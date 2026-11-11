@@ -1,7 +1,9 @@
 # Регистрация External AI ActionRun — реализация и проверка
 
-**Статус на 2026-11-11:** source candidate в отдельной task-ветке.
-Миграция и HTTP API **не развёрнуты на рабочем Windows Docker/Core**;
+**Статус на 2026-11-11:** исходники и миграция смержены владельцем
+через [PR №8](https://github.com/AlexPastukhh/feed_and_search_and_bank_and_brain/pull/8)
+в Docker `main` (`23abaac2a561978a787cbca3e690193abdd3f650`).
+Миграция и новый HTTP API **не развёрнуты на рабочем Windows Docker/Core**;
 внешние ручные выполнения №3/№4 ещё не появились в живом ActionRun.
 Семантика — [EXECUTION-MODES](EXECUTION-MODES.md), предметный результат —
 [ACTION-RESULTS-LIFECYCLE](ACTION-RESULTS-LIFECYCLE.md). Открытая работа —
@@ -75,10 +77,12 @@ Action ID. Отсутствие Bearer — `401`, неверный токен и
 - Отдельная вторая база: создан Programmatic Run по схеме `20261104_0006`;
   upgrade до `20261110_0007` сохранил ActionRun/ActionResult, `execution_kind`
   стал `programmatic`; downgrade вернул прежнюю схему с прежним Run.
-- Постоянная PostgreSQL, Windows runtime и GitHub `main` не изменялись.
+- На момент **самих тестов** постоянная PostgreSQL и Windows runtime
+  не изменялись; позже код попал в `main` через owner merge PR №8.
 
-**Следующая приёмка:** source PR и owner merge, затем отдельное одобренное
-развёртывание и проверка реального Registry/миграции/прав, после чего
+**Следующая приёмка:** отдельное разрешённое обновление Windows
+через Mirror с проверкой точного SHA, применение миграции `0007`,
+проверка живого Registry и разрешённого способа настройки прав; после этого
 регистрация архивных Research №3 и Monitoring №4 только с реальными
 ссылками, достоверными датами и проверенным readback. До этого не
 отмечать P0 как реализованный на рабочем Core.
