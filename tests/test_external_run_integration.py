@@ -7,7 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
+from info_hub.action_models import ActionVersion
 from info_hub.action_run_models import ActionRun, ActionStepRun
 from info_hub.db import open_session
 from info_hub.main import app
@@ -78,3 +80,51 @@ def test_posthoc_idempotent_registration_without_broker(monkeypatch):
         assert session.scalars(
             select(ActionStepRun).where(ActionStepRun.action_run_id == run_id)
         ).all() == []
+
+
+def test_failed_external_run_and_worker_queue_guard(monkeypatch):
+    """A failed AI report stays terminal; even raw SQL cannot queue an AI Run."""
+    from info_hub import external_run_auth
+
+    client = TestClient(app)
+    created = client.post("/actions", json={"definition_yaml": DOC})
+    assert created.status_code == 201, created.text
+    action_id = created.json()["id"]
+    config = {"fortis-chatgpt": {"token": TOKENS["fortis-chatgpt"],
+                                "action_ids": [action_id]}}
+    monkeypatch.setattr(external_run_auth, "get_settings", lambda: SimpleNamespace(
+        action_external_run_tokens=SecretStr(json.dumps(config)),
+    ))
+    payload = dict(
+        version_number=1, external_run_key="research-v1-failure01",
+        initiated_by="ai", status="failed", error_code="source_unavailable",
+        summary="Authorized source was unavailable", output_refs=[],
+        storage_status="reported_not_saved",
+    )
+    response = client.post(
+        f"/actions/{action_id}/external-runs", json=payload,
+        headers={"Authorization": "Bearer " + TOKENS["fortis-chatgpt"]},
+    )
+    assert response.status_code == 201, response.text
+    result = response.json()
+    assert result["execution_kind"] == "external_ai"
+    assert result["status"] == "failed" and result["steps"] == []
+    assert result["error_code"] == "source_unavailable"
+    assert result["result"]["details"]["storage_status"] == "reported_not_saved"
+
+    with open_session() as session:
+        version_id = session.scalar(select(ActionVersion.id).where(
+            ActionVersion.action_id == action_id, ActionVersion.version_number == 1,
+        ))
+        assert version_id is not None
+        # Direct database insertion must still reject a queued external AI run.
+        illegal = ActionRun(
+            action_id=action_id, action_version_id=version_id,
+            status="queued", initiated_by="ai", execution_kind="external_ai",
+            executor_id="fortis-chatgpt", external_run_key="illegal-queued-run",
+            registration_fingerprint="f" * 64,
+        )
+        session.add(illegal)
+        with pytest.raises(IntegrityError):
+            session.flush()
+        session.rollback()

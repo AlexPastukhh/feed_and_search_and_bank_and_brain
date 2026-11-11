@@ -37,7 +37,14 @@ Core ActionRun для ручных выполнений пока отсутст�
   running/StepRun и не привязывать Run к ChatGPT. Режим исполнения
   **операционный**, независим от `research`/`monitoring`. Проверить
   чтение истории №3/№4, права и execution_status/storage_status.
-  API регистрации внешнего Run пока отсутствует.
+  **Source candidate проверен 2026-11-11** на отдельной PostgreSQL 15.19:
+  [контракт и evidence](EXTERNAL-AI-RUN-REGISTRATION.md),
+  137 тестов и 127 подтестов прошли, upgrade/downgrade с историческим
+  Programmatic Run сохранён. В рабочем API функция **ещё отсутствует**:
+  нужно owner merge, отдельно разрешённое развёртывание, выдача scoped
+  credentials, проверенный readback и регистрация настоящих №3/№4.
+  Синтаксис output_refs проверяется Core, фактическое сохранение
+  подтверждается отдельно, а не выводится из слова completed.
 - [ ] **Замкнуть Research review (UC-ACT-009/010):** из сохранённого
   результата №3 прочитать одну рекомендацию и её Evidence, обсудить,
   записать **отдельное** approved/rejected/deferred решение.
