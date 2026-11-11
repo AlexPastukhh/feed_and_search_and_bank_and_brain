@@ -1,0 +1,73 @@
+# Release planning source catalog v1. Not evidence of any live deployment.
+schemaVersion: 1
+repository: feed_and_search_and_bank_and_brain
+buildUnits:
+  - id: feedbrain-app-image
+    artifactType: docker-image
+    recipe: Dockerfile
+    inputs:
+      - Dockerfile
+      - pyproject.toml
+      - README.md
+      - src/**
+      - alembic/**
+      - alembic.ini
+targets:
+  - id: api
+    deployment:
+      kind: docker-compose-service
+      procedure: docs/DEVELOPMENT.md
+      environments:
+        - local
+    verification:
+      - health-ready-and-db
+    buildUnit: feedbrain-app-image
+  - id: worker
+    deployment:
+      kind: docker-compose-service
+      procedure: docs/DEVELOPMENT.md
+      environments:
+        - local
+    verification:
+      - source-tests
+      - compose-service-readback
+    buildUnit: feedbrain-app-image
+  - id: action-worker
+    deployment:
+      kind: docker-compose-service
+      procedure: docs/DEVELOPMENT.md
+      environments:
+        - local
+    verification:
+      - source-tests
+      - compose-service-readback
+    buildUnit: feedbrain-app-image
+  - id: migrate
+    deployment:
+      kind: docker-compose-service
+      procedure: docs/DEVELOPMENT.md
+      environments:
+        - local
+    verification:
+      - alembic-upgrade-exit-zero
+    buildUnit: feedbrain-app-image
+  - id: compose-configuration
+    deployment:
+      kind: configuration
+      procedure: docs/DEVELOPMENT.md
+      environments:
+        - local
+    verification:
+      - compose-config-review
+      - postgres-volume-preservation
+    inputs:
+      - compose.yaml
+      - .env.example
+noDeploymentPaths:
+  - docs/**
+  - tests/**
+  - ci/**
+  - scripts/**
+  - AGENTS.md
+  - .gitignore
+  - .gitattributes
