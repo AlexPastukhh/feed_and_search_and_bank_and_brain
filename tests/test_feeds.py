@@ -4,7 +4,6 @@ import unittest
 from info_hub.feeds import MAX_FEED_BYTES, parse_feed, plain_text
 from info_hub.fetch import validate_feed_url
 
-
 RSS = b"""<?xml version="1.0"?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>

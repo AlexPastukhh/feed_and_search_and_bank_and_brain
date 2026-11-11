@@ -5,8 +5,11 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from info_hub.action_broker import (
-    CapabilityBroker, ToolExecutionError, safe_error_code,
-    safe_error_external_ref, safe_error_message,
+    CapabilityBroker,
+    ToolExecutionError,
+    safe_error_code,
+    safe_error_external_ref,
+    safe_error_message,
 )
 from info_hub.action_workflow import WorkflowValidationError
 from info_hub.feedbrain_adapter import FeedbrainSyncAdapter, _http_json
