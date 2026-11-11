@@ -45,9 +45,14 @@ jobs:
         run: ruff check .
       - name: Migrate up
         run: alembic upgrade head
+      # Verify rollback only while the disposable database is still empty.
+      # Revision 0008 deliberately refuses to invent executor identity for
+      # anonymous external ActionRuns created by integration tests.
+      - name: Verify empty-database schema downgrade
+        run: alembic downgrade base
+      - name: Reapply migrations before data-writing tests
+        run: alembic upgrade head
       - name: Real database readiness smoke
         run: python -c "from fastapi.testclient import TestClient; from info_hub.main import app; response = TestClient(app).get('/health/ready'); assert response.status_code == 200, response.text"
       - name: Test
         run: pytest -q
-      - name: Migrate down
-        run: alembic downgrade base
