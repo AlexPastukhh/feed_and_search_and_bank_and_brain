@@ -24,7 +24,7 @@ from info_hub.action_run_models import ActionRun
 from info_hub.action_run_services import RunConflict, RunNotFound, queue_action_run
 from info_hub.action_workflow import WorkflowValidationError
 from info_hub.db import get_session
-from info_hub.external_run_auth import authenticated_external_executor
+from info_hub.external_run_auth import authorize_external_run
 from info_hub.external_run_registration import register_external_run
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,6 @@ def _run_summary(run: ActionRun) -> dict:
         "status": run.status,
         "initiated_by": run.initiated_by,
         "execution_kind": run.execution_kind,
-        "executor_id": run.executor_id,
         "external_run_key": run.external_run_key,
         "created_at": run.created_at,
         "started_at": run.started_at,
@@ -172,13 +171,12 @@ class ExternalRunCreate(BaseModel):
 @router.post("/actions/{action_id}/external-runs", status_code=status.HTTP_201_CREATED)
 def record_external_action_run(
     action_id: int, payload: ExternalRunCreate, response: Response,
-    executor_id: str = Depends(authenticated_external_executor),
+    _: None = Depends(authorize_external_run),
     session: Session = Depends(get_session),
 ) -> dict:
     """Authenticated, post-hoc registration in the existing ActionRun history."""
     fingerprint_data = {
         "action_id": action_id,
-        "executor_id": executor_id,
         "payload": payload.model_dump(mode="json"),
     }
     fingerprint = hashlib.sha256(json.dumps(
@@ -187,7 +185,7 @@ def record_external_action_run(
     try:
         run, created = register_external_run(
             session, action_id=action_id, version_number=payload.version_number,
-            external_run_key=payload.external_run_key, executor_id=executor_id,
+            external_run_key=payload.external_run_key,
             initiated_by=payload.initiated_by, status=payload.status,
             summary=payload.summary, started_at=payload.started_at,
             finished_at=payload.finished_at, output_refs=payload.output_refs,
