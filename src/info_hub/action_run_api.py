@@ -1,8 +1,20 @@
 """Manual Action execution API. Enqueue, don't wait for external HTTP in a request."""
+import hashlib
+import json
 import logging
+import re
+from typing import Literal
+from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,6 +24,8 @@ from info_hub.action_run_models import ActionRun
 from info_hub.action_run_services import RunConflict, RunNotFound, queue_action_run
 from info_hub.action_workflow import WorkflowValidationError
 from info_hub.db import get_session
+from info_hub.external_run_auth import authenticated_external_executor
+from info_hub.external_run_registration import register_external_run
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["action-runs"])
@@ -30,6 +44,9 @@ def _run_summary(run: ActionRun) -> dict:
         "action_version_number": run.version.version_number,
         "status": run.status,
         "initiated_by": run.initiated_by,
+        "execution_kind": run.execution_kind,
+        "executor_id": run.executor_id,
+        "external_run_key": run.external_run_key,
         "created_at": run.created_at,
         "started_at": run.started_at,
         "finished_at": run.finished_at,
@@ -88,6 +105,101 @@ def start_action_run(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return _run_summary(run)
 
+
+
+
+class ExternalRunCreate(BaseModel):
+    """An immutable report of an already finished external AI execution.
+
+    Posting this does not start an AI, the Broker, or a managed worker.
+    Storage references are executor claims; Core never dereferences them.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    version_number: int = Field(ge=1)
+    external_run_key: str = Field(
+        min_length=1, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+    )
+    initiated_by: Literal["user", "ai", "api", "schedule", "unknown"]
+    status: Literal["completed", "failed", "interrupted"]
+    summary: str = Field(min_length=1, max_length=320)
+    started_at: AwareDatetime | None = None
+    finished_at: AwareDatetime | None = None
+    error_code: str | None = Field(
+        default=None, min_length=1, max_length=80, pattern=r"^[a-z][a-z0-9_]*$",
+    )
+    output_refs: list[str] = Field(default_factory=list, max_length=8)
+    storage_status: Literal["reported_saved", "reported_not_saved", "unknown"]
+
+    @field_validator("external_run_key")
+    @classmethod
+    def validate_key(cls, value: str) -> str:
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,159}", value) is None:
+            raise ValueError("Invalid external run key")
+        return value
+
+    @field_validator("output_refs")
+    @classmethod
+    def validate_refs(cls, refs: list[str]) -> list[str]:
+        if len(set(refs)) != len(refs):
+            raise ValueError("Duplicate output reference")
+        for uri in refs:
+            if len(uri) > 600 or any(ord(ch) < 33 or ord(ch) == 127 for ch in uri):
+                raise ValueError("Invalid output reference")
+            try:
+                parts = urlsplit(uri)
+            except ValueError:
+                raise ValueError("Invalid output reference") from None
+            if (parts.scheme != "https" or not parts.hostname
+                    or parts.username is not None or parts.password is not None
+                    or parts.query or parts.fragment or not parts.path):
+                raise ValueError("Use HTTPS references without credentials or query strings")
+        return refs
+
+    @model_validator(mode="after")
+    def validate_claim(self):
+        if self.started_at and self.finished_at and self.finished_at < self.started_at:
+            raise ValueError("finished_at precedes started_at")
+        if self.status == "completed" and self.error_code is not None:
+            raise ValueError("Completed run must not have an error_code")
+        if self.storage_status == "reported_saved" and not self.output_refs:
+            raise ValueError("Reported saved result requires an output reference")
+        if self.storage_status == "reported_not_saved" and self.output_refs:
+            raise ValueError("Unstored result must not have output references")
+        return self
+
+
+@router.post("/actions/{action_id}/external-runs", status_code=status.HTTP_201_CREATED)
+def record_external_action_run(
+    action_id: int, payload: ExternalRunCreate, response: Response,
+    executor_id: str = Depends(authenticated_external_executor),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Authenticated, post-hoc registration in the existing ActionRun history."""
+    fingerprint_data = {
+        "action_id": action_id,
+        "executor_id": executor_id,
+        "payload": payload.model_dump(mode="json"),
+    }
+    fingerprint = hashlib.sha256(json.dumps(
+        fingerprint_data, sort_keys=True, ensure_ascii=False, separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+    try:
+        run, created = register_external_run(
+            session, action_id=action_id, version_number=payload.version_number,
+            external_run_key=payload.external_run_key, executor_id=executor_id,
+            initiated_by=payload.initiated_by, status=payload.status,
+            summary=payload.summary, started_at=payload.started_at,
+            finished_at=payload.finished_at, output_refs=payload.output_refs,
+            storage_status=payload.storage_status, error_code=payload.error_code,
+            registration_fingerprint=fingerprint,
+        )
+    except RunNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RunConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return _run_detail(run)
 
 @router.get("/actions/{action_id}/runs")
 def list_action_runs(
