@@ -8,7 +8,7 @@ from pydantic import SecretStr
 
 from info_hub import gateway_action_api, gateway_read_auth
 from info_hub.db import get_session
-from info_hub.main import app
+from info_hub.gateway_read_main import app
 
 TOKEN = "gateway-read-token-" + ("x" * 40)
 DIGEST = hashlib.sha256(TOKEN.encode("ascii")).hexdigest()
@@ -65,6 +65,18 @@ def gateway_client(monkeypatch):
 
 def _headers(token=TOKEN):
     return {"Authorization": f"Bearer {token}"}
+
+
+def test_gateway_https_app_is_not_the_local_http_app(gateway_client):
+    from info_hub.main import app as local_http_app
+
+    client, _session = gateway_client
+    for path in ("/actions/3", "/health/live", "/health/ready", "/docs",
+                 "/openapi.json", "/redoc", "/sources", "/search"):
+        response = client.get(path, headers=_headers(), follow_redirects=False)
+        assert response.status_code == 404, (path, response.status_code)
+    with TestClient(local_http_app, base_url="http://127.0.0.1:8000") as local:
+        assert local.get(PATH, headers=_headers(), follow_redirects=False).status_code == 404
 
 
 def test_gateway_read_returns_only_closed_current_action_projection(gateway_client):

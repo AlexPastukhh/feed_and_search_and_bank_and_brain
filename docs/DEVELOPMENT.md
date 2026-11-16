@@ -197,9 +197,17 @@ HTTP API локально доступен по `http://127.0.0.1:8000`, инт�
 
 ## Source candidate: Gateway READ
 
-В task source candidate добавлен отдельный `GET /gateway/v1/actions/{action_id}` для Actions №3/4. Он использует независимый Bearer verifier `ACTION_GATEWAY_READ_TOKEN_SHA256` — только lowercase SHA-256 hex (64 символа), не исходный токен. В Compose переменная передаётся только API service; если она отсутствует или некорректна, endpoint отвечает 503. **Не помещайте raw Bearer в `.env`**: он должен находиться только в существующем Gateway vault. Этот source candidate не развёрнут; до завершения DOCKER-HTTPS/network ACL и UC-GW-012 Acceptance не задавайте verifier и не открывайте endpoint Gateway.
+В принятом source PR #16 добавлен `GET /gateway/v1/actions/{action_id}` для Actions №3/4. Новый native TLS source task переносит его из обычного HTTP API в **отдельный узкий HTTPS-only ASGI entrypoint**. Независимый Bearer verifier `ACTION_GATEWAY_READ_TOKEN_SHA256` — lowercase SHA-256 hex (64 символа), не исходный токен — передаётся **только будущему owner-provisioned HTTPS listener**, а не local HTTP API service. **Не помещайте raw Bearer в `.env`**: он находится только в существующем Gateway vault. Исходники не развернуты; до доказанного TLS/443 и network ACL live Gateway READ запрещён.
 
 После установки зависимостей контрактные тесты source candidate: `pytest -q tests/test_gateway_action_api.py`; они используют fake session/dependency override и не пишут в PostgreSQL.
+
+## Native TLS/443 Gateway READ source (не развернуто)
+
+В task `action-core-native-https-entry-20261117` исходный Gateway router убран из обычного `info_hub.main:app` на HTTP/8000: для него остаются существующие Windows-local клиенты и workers. Для Fortis Gateway используется **отдельный** `info_hub.gateway_read_main:app` без `/docs`, OpenAPI и остальных маршрутов. Его единственный владеющий listener — `python -m info_hub.gateway_https_server`: Uvicorn непосредственно поднимает TLS на 443, не делает прокси, redirect или plaintext fallback. Старый HTTP/8000 не считается допустимым Gateway-транспортом.
+
+TLS certificate/key должны поступать из owner-managed read-only mount `/run/action-core-gateway-tls/tls.crt` и `/run/action-core-gateway-tls/tls.key`, где приватный ключ не доступен группе/остальным. Отдельный verifier `ACTION_GATEWAY_READ_TOKEN_SHA256` хранит только hash токена, а не Bearer. При отсутствии verifier/сертификата/ключа HTTPS listener **не запускается**. Отдельно требуются reviewed network/DNS, CA/SAN `action-core-gw`, проверенное блокирование **двух** Gateway→HTTP/8000 путей до Docker NAT, существующий Gateway vault, UC-GW-009 и штатный owner deployment. Не создавать промежуточный Compose HTTP bridge; production Compose **не менялся** этим source-only PR.
+
+Offline tests после установки зависимостей: `pytest -q tests/test_gateway_action_api.py tests/test_gateway_https_server.py`. Они не меняют PostgreSQL или Windows runtime. Native TLS startup тест генерирует краткоживущий тестовый сертификат только в `tmp_path` с OpenSSL, не создаёт production credentials.
 
 ## Локальные Python-тесты
 
