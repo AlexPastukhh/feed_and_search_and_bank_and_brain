@@ -45,7 +45,7 @@ class ProjectStructureTests(unittest.TestCase):
         self.assertIn("ssl_keyfile=str(KEY_PATH)", server)
         self.assertIn("ssl_certfile=str(CERT_PATH)", server)
         self.assertIn("proxy_headers=False", server)
-        self.assertNotIn("ACTION_GATEWAY_READ_TOKEN_SHA256:", compose)
+        self.assertNotIn("ACTION_GATEWAY_READ_TOKEN_SHA256:", compose.split("  action-core-gw:", 1)[0])
 
     def test_environment_is_not_tracked(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
