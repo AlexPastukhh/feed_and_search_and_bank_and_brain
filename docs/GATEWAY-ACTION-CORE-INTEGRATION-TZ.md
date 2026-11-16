@@ -1,8 +1,11 @@
 # ТЗ: подключение Action Core к Fortis Gateway (UC-GW-012)
 
-**Статус:** проект ТЗ для реализации; не является подтверждением production deployment.  
-**Дата:** 2026-11-17. **Приоритет:** P0 READ, отдельно P0 WRITE.  
-**Владелец API:** `feed_and_search_and_bank_and_brain`. **Владелец Gateway:** `fortis-approvals`.  
+**Статус:** проект ТЗ для реализации; не является подтверждением production deployment.
+
+**Дата:** 2026-11-17. **Приоритет:** P0 READ, отдельно P0 WRITE.
+
+**Владелец API:** `feed_and_search_and_bank_and_brain`. **Владелец Gateway:** `fortis-approvals`.
+
 **Цель:** AI читает Action/версию/историю через единый типизированный Gateway без получения credential, а после отдельной WRITE-приёмки регистрирует завершённый внешний Run с проверяемым readback.
 
 ## 1. Нормативные документы
