@@ -6,6 +6,8 @@
 
 ## P0 — замкнуть историю и результат обоих Actions
 
+- [ ] **Подключить Action Core к Fortis Gateway через UC-GW-012 (READ first):** source-only endpoint `GET /gateway/v1/actions/{action_id}` с отдельным SHA-256 bearer verifier, закрытой проекцией и scope только Actions №3/4 готовится в task `gateway-action-core-read-20261117`. Не считать его deployed. **Блокер live acceptance:** Windows read-only probe из `fortis-gateway` получил HTTP 200 и по `host.docker.internal:8000`, и напрямую по `192.168.0.2:8000`; DNS `feedbrain-api-1` не разрешается. Значит, разные networks не изолируют локальный HTTP API. До owner-reviewed схемы, которая сохраняет Windows loopback `127.0.0.1:8000` и доказывает невозможность Gateway HTTP bypass, не менять Compose/контейнеры, не выдавать TLS/443 за готовый и не выполнять Gateway Acceptance. Текущий Fortis Guard фиксирует `NetworkMode=bridge` и `Manage-Integrations.ps1` запускает Gateway с `--network bridge`; переход на reviewed network требует изменения release controller/Guard/tests и штатного owner Promote, не ручного `network connect`. После устранения — DOCKER-HTTPS, typed provider и negative/live tests по ТЗ `GATEWAY-ACTION-CORE-INTEGRATION-TZ.md`; WRITE отдельный.
+
 - [ ] **Защитить восстановление после перезагрузки Windows:**
   добавить для PostgreSQL Compose `restart: unless-stopped`, проверять
   здоровье API по `/health/ready` (подключение к БД), а не только
