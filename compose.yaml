@@ -51,6 +51,40 @@ services:
       timeout: 5s
       retries: 6
 
+  action-core-gw:
+    <<: *app-image
+    profiles: ["gateway"]
+    command: ["python", "-m", "info_hub.gateway_https_server"]
+    environment:
+      <<: *app-env
+      ACTION_GATEWAY_READ_TOKEN_SHA256: ${ACTION_GATEWAY_READ_TOKEN_SHA256:-}
+    volumes:
+      - type: volume
+        source: action_core_gateway_tls
+        target: /run/action-core-gateway-tls
+        read_only: true
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "443"
+    networks:
+      - default
+      - fortis-actioncore-net
+    read_only: true
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=16m
+    restart: unless-stopped
+
   worker:
     <<: *app-image
     command: ["python", "-m", "info_hub.worker"]
@@ -73,3 +107,12 @@ services:
 
 volumes:
   postgres_data:
+  action_core_gateway_tls:
+    external: true
+    name: fortis-actioncore-gateway-tls
+
+networks:
+  fortis-actioncore-net:
+    name: fortis-actioncore-net
+    driver: bridge
+    internal: true

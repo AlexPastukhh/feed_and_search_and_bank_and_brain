@@ -85,6 +85,8 @@
 
 | 2026-11-17 | **Native TLS/443 source candidate для Gateway READ:** отдельное закрытое ASGI-приложение только для `GET /gateway/v1/actions/{id}` с Actions 3/4; Gateway router снят с local HTTP API, отдельный Uvicorn TLS/443 entrypoint требует сертификат/ключ/verifier до старта. Убран ненужный bearer-verifier env из local HTTP Compose service. Никаких runtime/Windows/Docker/postgres изменений. | Task `action-core-native-https-entry-20261117`: Python `compileall` и 4 structure-теста прошли, `git diff --check` чистый. Новые ASGI/TLS pytest-тесты подготовлены, но в Fortis Repo пока нет fastapi/pytest для локального запуска; exact-head CI проверяется в PR. Windows TCP peer test подтвердил NAT: все три источника появляются как `192.168.0.1`; downstream source-IP ACL не различит Gateway/Windows, поэтому live READ пока STOP до owner-reviewed pre-NAT network barrier, native TLS/443 и отрицательных probes. |
 
+| 2026-11-17 | **Подготовлен opt-in Compose service для native HTTPS/443:** отдельный `action-core-gw` под профилем `gateway`, без host port, с internal `fortis-actioncore-net`, внешним read-only TLS volume и отдельным SHA-256 verifier; local HTTP API и default Compose profile не меняются. | Task `action-core-gateway-compose-service-20261117`: 3 `test_gateway_compose.py` теста и 4 `test_structure.py` теста прошли; `compileall` и `git diff --check` прошли. Docker Compose/Windows runtime не запускались; сеть, volume, TLS material и PostgreSQL не менялись. Pre-NAT HTTP/8000 bypass остаётся; service не deployed и live READ не принят. |
+
 **Новая запись должна отвечать:** *что сделано/изменено*, *почему*, *чем проверено*, *что осталось неготовым*. Наличие коммита не доказывает прохождение интеграционного теста.
 ---
 
