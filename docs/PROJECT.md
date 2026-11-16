@@ -87,6 +87,8 @@
 
 | 2026-11-17 | **Подготовлен opt-in Compose service для native HTTPS/443:** отдельный `action-core-gw` под профилем `gateway`, без host port, с internal `fortis-actioncore-net`, внешним read-only TLS volume и отдельным SHA-256 verifier; local HTTP API и default Compose profile не меняются. | Task `action-core-gateway-compose-service-20261117`: 3 `test_gateway_compose.py` теста и 4 `test_structure.py` теста прошли; `compileall` и `git diff --check` прошли. Docker Compose/Windows runtime не запускались; сеть, volume, TLS material и PostgreSQL не менялись. Pre-NAT HTTP/8000 bypass остаётся; service не deployed и live READ не принят. |
 
+| 2026-11-17 | **Подготовлен network-isolation source candidate для Action Core Gateway:** `action-core-gw` отделён от local API/worker сети; отдельная внутренняя сеть связывает ingress с PostgreSQL, а другая — ingress с Fortis Gateway; Gateway не получает членство в DB network. | Task `action-core-gateway-network-isolation-20261117`: 6 Compose contract-тестов и 4 structure-теста прошли; `compileall` и `git diff --check` прошли. Изменения source-only: Docker/Windows runtime, firewall, сети, TLS volume и PostgreSQL не менялись. Прямая IP изоляция на Docker Desktop ещё не доказана; требуется Fortis Gateway controller/Guard и Windows firewall rule. |
+
 **Новая запись должна отвечать:** *что сделано/изменено*, *почему*, *чем проверено*, *что осталось неготовым*. Наличие коммита не доказывает прохождение интеграционного теста.
 ---
 
