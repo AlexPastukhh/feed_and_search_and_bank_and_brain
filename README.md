@@ -16,7 +16,6 @@
 | [EXTERNAL-AI-RUN-REGISTRATION.md](docs/EXTERNAL-AI-RUN-REGISTRATION.md) | Регистрация завершённого внешнего Run; исходники, права, тесты и граница Windows runtime |
 | [Use Cases](docs/use-cases/README.md) | Повторяемые способы работы с Actions: от AI-инструкции до программного мониторинга, фида и ожидания действия |
 | [SECURITY.md](docs/SECURITY.md) | Сетевая доступность, текущие риски и необходимые permissions |
-| [GATEWAY-COMPOSE.md](docs/GATEWAY-COMPOSE.md) | Опциональный native HTTPS/443 service и owner-only activation gates |
 | [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Локальный запуск, тесты, Git workflow, CI |
 | [RSS-FIRST-SLICE.md](docs/RSS-FIRST-SLICE.md) | Ручная проверка RSS и фоновой синхронизации |
 | [CONTENT-SEARCH.md](docs/CONTENT-SEARCH.md) | Поиск и извлечение текста |
