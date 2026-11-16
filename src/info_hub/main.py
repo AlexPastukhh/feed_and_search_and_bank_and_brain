@@ -7,6 +7,7 @@ from info_hub.action_api import router as actions_router
 from info_hub.action_run_api import router as action_runs_router
 from info_hub.action_schedule_api import router as action_schedules_router
 from info_hub.api import router as sources_router
+from info_hub.gateway_action_api import router as gateway_action_router
 from info_hub.health import router as health_router
 from info_hub.search_api import router as search_router
 from info_hub.settings import get_settings
@@ -23,6 +24,7 @@ app = FastAPI(
 )
 app.include_router(health_router)
 app.include_router(actions_router)
+app.include_router(gateway_action_router)
 app.include_router(action_runs_router)
 app.include_router(action_schedules_router)
 app.include_router(sources_router)

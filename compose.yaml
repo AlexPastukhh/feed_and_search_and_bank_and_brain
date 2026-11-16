@@ -37,7 +37,9 @@ services:
   api:
     <<: *app-image
     command: ["uvicorn", "info_hub.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment: *app-env
+    environment:
+      <<: *app-env
+      ACTION_GATEWAY_READ_TOKEN_SHA256: ${ACTION_GATEWAY_READ_TOKEN_SHA256:-}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     depends_on:

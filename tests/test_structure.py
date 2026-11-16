@@ -17,6 +17,8 @@ class ProjectStructureTests(unittest.TestCase):
             "alembic/versions/20261104_0005_action_execution.py",
             "alembic/versions/20261104_0006_action_schedules.py",
             "src/info_hub/action_schedule_api.py",
+            "src/info_hub/gateway_action_api.py",
+            "src/info_hub/gateway_read_auth.py",
             "src/info_hub/action_schedule_services.py",
             "src/info_hub/main.py",
             "src/info_hub/action_worker.py",

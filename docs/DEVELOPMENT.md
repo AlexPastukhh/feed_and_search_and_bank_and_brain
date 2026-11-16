@@ -195,6 +195,12 @@ Invoke-RestMethod -Method Get -Uri "$base/actions/$($action.id)/versions/1"
 
 HTTP API локально доступен по `http://127.0.0.1:8000`, интерактивная схема FastAPI — `/docs`, OpenAPI — `/openapi.json`. Из проверенного контейнера Fortis Repo на Docker Desktop API ранее был доступен по `http://host.docker.internal:8000`; это зависит от сети и не даёт полномочий на безопасный удалённый доступ. **У API пока нет авторизации.**
 
+## Source candidate: Gateway READ
+
+В task source candidate добавлен отдельный `GET /gateway/v1/actions/{action_id}` для Actions №3/4. Он использует независимый Bearer verifier `ACTION_GATEWAY_READ_TOKEN_SHA256` — только lowercase SHA-256 hex (64 символа), не исходный токен. В Compose переменная передаётся только API service; если она отсутствует или некорректна, endpoint отвечает 503. **Не помещайте raw Bearer в `.env`**: он должен находиться только в существующем Gateway vault. Этот source candidate не развёрнут; до завершения DOCKER-HTTPS/network ACL и UC-GW-012 Acceptance не задавайте verifier и не открывайте endpoint Gateway.
+
+После установки зависимостей контрактные тесты source candidate: `pytest -q tests/test_gateway_action_api.py`; они используют fake session/dependency override и не пишут в PostgreSQL.
+
 ## Локальные Python-тесты
 
 В среде с Python >= 3.11 и зависимостями:

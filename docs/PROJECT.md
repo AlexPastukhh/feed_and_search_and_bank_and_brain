@@ -1,6 +1,6 @@
 # Project: Current State · History
 
-> **Живой трекер проекта. Обновлено: 2026-11-10.**
+> **Живой трекер проекта. Обновлено: 2026-11-17.**
 > Здесь фиксируются **подтверждённое состояние** и **датированная история решений и проверок**. Все ещё не выполненные задачи и будущие улучшения — в [BACKLOG-IMPROVEMENTS.md](BACKLOG-IMPROVEMENTS.md).
 > Определения и принципы архитектуры — в [ARCHITECTURE.md](ARCHITECTURE.md), правила безопасности — в [SECURITY.md](SECURITY.md), запуск и тесты — в [DEVELOPMENT.md](DEVELOPMENT.md). История Git — первичный источник точных изменений кода.
 
@@ -80,6 +80,8 @@
 | 2026-11-10 | **Source-level поддержка семантических категорий Action:** опциональное версионируемое поле `category` с `general` по умолчанию, открытым пространством идентификаторов (например, `research`/`monitoring`), API-проекция для списка, карточки и истории версий. Категория не меняет исполнение, Tools, расписания и права. Изменён существующий UC-ACT-001; новый UC не нужен (UC-CONT-024). | Task worktree `action-category-semantics-20261110`: 22 unit-проверки валидатора прошли, 10 YAML-тестов пропущены без PyYAML; 3 structure-теста прошли, 52 Python-файла скомпилированы в памяти, `git diff --check` без замечаний. **Не проверено на развёрнутом Registry или disposable PostgreSQL; это не live-acceptance.** |
 
 | 2026-11-10 | **Подготовлена инструкция Action #3 v2 как стратегического исследования (source draft):** уточнён исследовательский фокус, допускается анализ заказов и результатов мониторинга, предложены границы ответственности и возможные настройки мониторинга. Дополнен существующий UC-ACT-004; v1 не менялась. | [YAML v2](../examples/actions/earning_opportunities_v2.yaml), [UC-ACT-004](use-cases/information.md#uc-act-004). Локально: 22 unit-теста прошли, 11 YAML-тестов пропущены без PyYAML, 3 structure-теста прошли, Python скомпилирован в памяти; YAML проверен только структурно. **Не опубликовано в Registry и не проверено как живой AI-запуск.** |
+
+| 2026-11-17 | **P0 Action Core ↔ Gateway READ source candidate:** в зарегистрированной task-ветке добавлен отдельный `GET /gateway/v1/actions/{action_id}` с независимым SHA-256 bearer verifier, scope только Actions №3/4, закрытой проекцией и лимитом 65 536 bytes. Изменения не развернуты; локальный API и PostgreSQL runtime не трогались. | Task `gateway-action-core-read-20261117`: Python `compileall`, 3 `test_structure.py` теста и `git diff --check` прошли. HTTP pytest-контракт написан, но не исполнен в этой среде (нет FastAPI/SQLAlchemy/pytest). Windows read-only probe из `fortis-gateway` получил HTTP 200 на `host.docker.internal:8000` и `192.168.0.2:8000`; поэтому сетевой bypass подтверждён и live acceptance **заблокирован** до owner-reviewed ACL/TLS. Свежий Gateway catalog содержит только `mirror.get_repository`; global inventory — 4 `UNCERTAIN`, activity — 1 отдельный `CLAIMED` (`CLOSED_UNCONFIRMED`), quiescence не доказан. Подробности и STOP-условия — [ТЗ](GATEWAY-ACTION-CORE-INTEGRATION-TZ.md) и [Security](SECURITY.md). Наличие source endpoint не означает deployed/runtime-ready.
 
 **Новая запись должна отвечать:** *что сделано/изменено*, *почему*, *чем проверено*, *что осталось неготовым*. Наличие коммита не доказывает прохождение интеграционного теста.
 ---

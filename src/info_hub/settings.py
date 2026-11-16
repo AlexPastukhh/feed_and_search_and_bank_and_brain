@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     # Optional JSON list of action-scoped token grants, without executor IDs.
     # Disabled until explicitly provisioned on the trusted API host.
     action_external_run_tokens: SecretStr = SecretStr("")
+    # SHA-256 hex verifier for the separate Gateway READ bearer; never the token.
+    action_gateway_read_token_sha256: SecretStr = SecretStr("")
 
     model_config = SettingsConfigDict(
         env_file=".env",
