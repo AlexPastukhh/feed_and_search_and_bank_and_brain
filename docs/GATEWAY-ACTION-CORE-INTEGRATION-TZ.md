@@ -34,6 +34,8 @@
 
 **Свежая read-only проверка Gateway 2026-11-17:** штатный `extensions.client.default_client().catalog()` возвращает только `mirror.get_repository`; `action_core` отсутствует. Полный global unresolved inventory показывает 4 `UNCERTAIN`; actor-scoped activity — 1 `CLAIMED` по отдельному запросу, у которого incident inspection показывает `CLOSED_UNCONFIRMED`, receipt отсутствует. `quiescenceProven=false`, retry authorization отсутствует. Это не мешает source-разработке, но блокирует production release/Promotion и live Acceptance до разрешения по UC-GW-009.
 
+**Windows TCP peer evidence 2026-11-17:** при параллельных TCP-сеансах Gateway→`host.docker.internal:8000`, Gateway→`192.168.0.2:8000` и Windows→`127.0.0.1:8000` `/proc/net/tcp` внутри `feedbrain-api-1` трижды показал peer `192.168.0.1` (разные ephemeral ports). Это NAT; IP-based ACL внутри API не отличит Gateway от Windows и не считается сетевым барьером. Первое Gateway-visible соединение допускается **только напрямую через конечный native TLS/443** с отдельным закрытым ASGI app. Нет временного HTTP bridge/proxy, compatibility-layer, dual mode или fallback. Для backend HTTP/8000 нужен проверенный блок обоих Gateway обходов **до NAT**, либо собственный недоступный Gateway локальный канал для Windows. Без доказательства — STOP. Source задача для нативного TLS entrypoint не изменяет running Compose, БД или Gateway.
+
 ## 3. Границы и критерии результата
 
 Путь: `AI → Fortis Repo SDK → Primary Gateway (machine TLS, actor, policy, vault) → fixed HTTPS:443 → защищённый Action Core → PostgreSQL`.
