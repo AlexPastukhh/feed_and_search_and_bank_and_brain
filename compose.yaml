@@ -24,6 +24,9 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+    networks:
+      - default
+      - fortis-actioncore-db
 
   migrate:
     <<: *app-image
@@ -69,8 +72,8 @@ services:
     expose:
       - "443"
     networks:
-      - default
       - fortis-actioncore-net
+      - fortis-actioncore-db
     read_only: true
     user: "10001:10001"
     cap_drop:
@@ -116,3 +119,13 @@ networks:
     name: fortis-actioncore-net
     driver: bridge
     internal: true
+    labels:
+      io.fortis.owner: feed_and_search_and_bank_and_brain
+      io.fortis.purpose: action-core-gateway-v1
+  fortis-actioncore-db:
+    name: fortis-actioncore-db
+    driver: bridge
+    internal: true
+    labels:
+      io.fortis.owner: feed_and_search_and_bank_and_brain
+      io.fortis.purpose: action-core-database-v1

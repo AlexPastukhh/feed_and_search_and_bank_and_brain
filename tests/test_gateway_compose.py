@@ -18,7 +18,7 @@ class GatewayComposeTests(unittest.TestCase):
         self.assertEqual(["python", "-m", "info_hub.gateway_https_server"], service["command"])
         self.assertEqual(["443"], service["expose"])
         self.assertNotIn("ports", service)
-        self.assertEqual(["default", "fortis-actioncore-net"], service["networks"])
+        self.assertEqual(["fortis-actioncore-net", "fortis-actioncore-db"], service["networks"])
         self.assertEqual("${ACTION_GATEWAY_READ_TOKEN_SHA256:-}", service["environment"]["ACTION_GATEWAY_READ_TOKEN_SHA256"])
         self.assertEqual([{"type": "volume", "source": "action_core_gateway_tls", "target": "/run/action-core-gateway-tls", "read_only": True}], service["volumes"])
         self.assertTrue(service["read_only"])
@@ -30,6 +30,35 @@ class GatewayComposeTests(unittest.TestCase):
         self.assertEqual("service_healthy", service["depends_on"]["db"]["condition"])
         self.assertNotIn("migrate", service["depends_on"])
 
+    def test_gateway_cannot_share_the_local_api_network(self):
+        service = self.compose["services"]["action-core-gw"]
+        api = self.compose["services"]["api"]
+        self.assertNotIn("default", service["networks"])
+        self.assertNotIn("fortis-actioncore-net", api.get("networks", []))
+        self.assertNotIn("fortis-actioncore-db", api.get("networks", []))
+        self.assertNotIn("fortis-actioncore-net", self.compose["services"]["db"]["networks"])
+
+    def test_database_is_dual_homed_only_for_existing_api_and_gateway_ingress(self):
+        db = self.compose["services"]["db"]
+        service = self.compose["services"]["action-core-gw"]
+        self.assertEqual(["default", "fortis-actioncore-db"], db["networks"])
+        self.assertIn("fortis-actioncore-db", service["networks"])
+        self.assertNotIn("default", service["networks"])
+        self.assertNotIn("fortis-actioncore-db", self.compose["services"]["api"].get("networks", []))
+
+    def test_networks_are_internal_and_owner_labelled(self):
+        networks = self.compose["networks"]
+        gateway = networks["fortis-actioncore-net"]
+        database = networks["fortis-actioncore-db"]
+        self.assertEqual("fortis-actioncore-net", gateway["name"])
+        self.assertEqual("fortis-actioncore-db", database["name"])
+        for network in (gateway, database):
+            self.assertEqual("bridge", network["driver"])
+            self.assertTrue(network["internal"])
+            self.assertEqual("feed_and_search_and_bank_and_brain", network["labels"]["io.fortis.owner"])
+        self.assertEqual("action-core-gateway-v1", gateway["labels"]["io.fortis.purpose"])
+        self.assertEqual("action-core-database-v1", database["labels"]["io.fortis.purpose"])
+
     def test_existing_local_api_remains_http_8000_without_gateway_verifier(self):
         api = self.compose["services"]["api"]
         self.assertEqual(["uvicorn", "info_hub.main:app", "--host", "0.0.0.0", "--port", "8000"], api["command"])
@@ -37,14 +66,12 @@ class GatewayComposeTests(unittest.TestCase):
         self.assertNotIn("ACTION_GATEWAY_READ_TOKEN_SHA256", api["environment"])
         self.assertEqual(["gateway"], self.compose["services"]["action-core-gw"]["profiles"])
 
-    def test_gateway_network_and_tls_volume_are_owner_provisioned(self):
-        network = self.compose["networks"]["fortis-actioncore-net"]
-        self.assertEqual("fortis-actioncore-net", network["name"])
-        self.assertEqual("bridge", network["driver"])
-        self.assertTrue(network["internal"])
+    def test_gateway_tls_volume_remains_external_and_read_only(self):
         volume = self.compose["volumes"]["action_core_gateway_tls"]
         self.assertTrue(volume["external"])
         self.assertEqual("fortis-actioncore-gateway-tls", volume["name"])
+        service = self.compose["services"]["action-core-gw"]
+        self.assertEqual([{"type": "volume", "source": "action_core_gateway_tls", "target": "/run/action-core-gateway-tls", "read_only": True}], service["volumes"])
 
 
 if __name__ == "__main__":
