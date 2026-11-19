@@ -12,6 +12,63 @@
 - `ACTION_GATEWAY_READ_TOKEN_SHA256` is passed only to `action-core-gw` and is the lowercase SHA-256 verifier, never the raw Bearer. The raw scoped Bearer is held only by the existing Fortis Gateway vault.
 - The service runs as UID/GID `10001:10001`, with a read-only root filesystem, `NET_BIND_SERVICE` only, dropped remaining capabilities, no-new-privileges and bounded memory/processes.
 
+## Production PostgreSQL network cutover: separate owner maintenance
+
+The checked-in Compose network topology is **desired source**, not a live
+approval. Adding the internal `fortis-actioncore-db` bridge to an existing
+`db` service can **recreate PostgreSQL** and disconnect the existing local
+HTTP API and workers; a `--dry-run` is only a preview.
+
+**Mandatory owner admission before any Windows production effect:**
+
+1. Inspect the exact running PostgreSQL container, immutable image ID versus
+   its mutable local tag, Compose project/service/hash/provenance and version,
+   restart policy, ports, original bridge identity, and the **RW named PGDATA
+   volume**. Preserve the original image and private original configuration;
+   never publish Docker environment or credentials. A historical Compose file
+   or matching path/hash is not proof of an exact operational rollback.
+2. Verify a scoped backup **and independent isolated restore** at the
+   required application level. Name exclusions such as roles/globals, off-host
+   DR and subsequent writes. An encrypted inspect snapshot is configuration
+   evidence, **not** a tested rollback or database backup.
+3. Agree an executable **single-writer rollback plan** restoring the original
+   network configuration, pinned image and **the same production data volume**,
+   with specific STOP/recovery gates, acceptable downtime, owner decision and
+   API/client reconnect checks. Do not automatically overwrite PGDATA with a
+   logical restore, invoke migrations or reconstruct secrets from public files.
+4. Fence **new writes** from every producer before interrupting DB. Draining
+   RSS/Action workers alone does not prevent API requests, schedules or other
+   clients from enqueuing work. Coordinate separately approved worker drain,
+   scheduler and API-write admission control (or an explicitly approved
+   temporary API outage). SIGTERM does not guarantee active jobs have finished;
+   momentary zero database counts are not durable quiescence. After admission
+   is enforced, recheck jobs, in-flight external effects, DB transactions,
+   clients and service health; any UNKNOWN means STOP.
+5. Review exact **service-scoped** Compose changes and managed network labels
+   before GO. A candidate preview is
+   `docker compose --dry-run up --no-deps --no-build --pull never -d db`
+   from verified project/file context. A real operation can **both create a
+   Compose-owned network and recreate DB**: approval must cover each effect.
+   No unscoped `compose up`, `down`, `down -v`, `migrate`, implicit Alembic,
+   unrelated service reconciliation, image build/pull or manually mislabeled
+   network provisioning.
+
+**Post-cutover checks:** same pinned image and production RW PGDATA, intact
+data, both expected DB networks with correct identities, PostgreSQL
+health/SQL, Windows-local `127.0.0.1:8000/health/live` **and** `/health/ready`,
+API/worker reconnect and no lost in-flight effects. Resume write admission
+and workers only after owner acceptance; uncertain results require a
+reviewed rollback path rather than blind Compose retry.
+
+**Later, separately approved gates:** provision the ingress-only
+`fortis-actioncore-net` network, read-only TLS volume/cert/key, SAN/CA and
+scoped credential/verifier **before** starting `action-core-gw` HTTPS/443
+without running migrations. Only the Fortis owner release controller may
+attach Primary Gateway to ingress; never use manual network connect. A
+Docker-backend-wide TCP/8000 firewall block requires collateral-impact
+review and separate GO; prove denial of **both** legacy Gateway paths
+while preserving Windows-local HTTP access.
+
 ## Activation gates — still STOP
 
 The profile is deliberately not enabled by ordinary `docker compose up`. Do not start it or attach the live Gateway until all of the following are independently accepted:

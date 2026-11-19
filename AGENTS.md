@@ -48,5 +48,5 @@ is `/workspace/repos/feed_and_search_and_bank_and_brain`.
 - Run `python3 -m compileall -q src alembic tests`.
 - Run `python3 -m unittest discover -s tests -p test_structure.py`.
 - With development dependencies: `ruff check .`, `pytest -q`.
-- With Docker Engine: `docker compose up --build -d` and health checks.
+- Only in **isolated, disposable development** may a reviewed `docker compose up --build -d` and health checks be used. **Never use blanket Compose** for an existing Windows production stack or the Action Core DB network change: it may recreate services or run Alembic. Follow `docs/GATEWAY-COMPOSE.md` for owner-approved service-scoped preflight, no-new-write maintenance, independent restore and rollback.
 - Never claim runtime verification without observing the runtime.
